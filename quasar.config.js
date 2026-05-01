@@ -1,8 +1,8 @@
 /* eslint-env node */
 
-const { configure } = require('quasar/wrappers')
+import { configure } from 'quasar/wrappers';
 
-module.exports = configure(function (/* ctx */) {
+export default configure(function (ctx) {
   return {
     eslint: { fix: true, warnings: true, errors: true },
 
@@ -13,6 +13,7 @@ module.exports = configure(function (/* ctx */) {
     extras: ['roboto-font', 'material-icons', 'material-icons-outlined', 'fontawesome-v6'],
 
     build: {
+      publicPath:'/Album-panini2026/',
       target: { browser: ['es2019', 'edge88', 'firefox78', 'chrome87', 'safari13.1'] },
       vueRouterMode: 'hash',
       vitePlugins: []
@@ -42,7 +43,7 @@ module.exports = configure(function (/* ctx */) {
     animations: [],
 
     pwa: {
-      workboxMode: 'generateSW',
+      workboxMode: 'GenerateSW',
       injectPwaMetaTags: true,
       swFilename: 'sw.js',
       manifestFilename: 'manifest.json',
