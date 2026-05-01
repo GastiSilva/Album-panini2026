@@ -1,217 +1,189 @@
-/**
- * composables/useFirebaseAlbum.js
- * ─────────────────────────────────────────────────────────────────────────
- * Gestiona toda la lógica de lectura/escritura del álbum en Firestore.
+﻿/**
+ * useFirebaseAlbum.js
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * Gestiona el estado del Ã¡lbum.
+ * - Con Firebase configurado â†’ Firestore en tiempo real
+ * - Sin Firebase (.env.local vacÃ­o) â†’ localStorage (modo offline local)
  *
- * ── ESQUEMA FIRESTORE (óptimo para minimizar lecturas) ──────────────────
- *
- *   Collection: users
- *   Document:   {uid}
- *   {
- *     displayName: string,
- *     photoURL:    string | null,
- *     email:       string | null,
- *     createdAt:   Timestamp,
- *     updatedAt:   Timestamp,
- *
- *     owned: {                 ← Map<string, number>
- *       "21":  1,              //   1  = tengo (pegada)
- *       "45":  3,              //   2+ = repetidas (total: pegada + extras)
- *       "980": 2,              //   0  nunca se guarda (no existe = falta)
- *       ...                    //   Solo se almacenan las figuritas poseídas
- *     }
- *   }
- *
- * Por qué este esquema:
- *   ✔ Un único documento por usuario → 1 lectura para cargar TODO el álbum
- *   ✔ Escrituras atómicas con updateDoc + merge
- *   ✔ Sin figuritas con valor 0 → ahorra espacio y Firestore cobra por campo
- *   ✔ Fácil calcular: repetidas = owned[id] > 1
- *   ✔ Subcollección solo si owned supera ~10.000 campos (no aplica aquí)
- *
- * ── OPTIMISTIC UPDATES ──────────────────────────────────────────────────
- *   La UI se actualiza inmediatamente en local; el write a Firestore
- *   se hace en paralelo. Si falla, se revierte y se notifica al usuario.
- * ─────────────────────────────────────────────────────────────────────────
+ * Esquema Firestore:
+ *   users/{uid} â†’ { owned: Map<"stickerID": count> }
+ *   count = 0 nunca se guarda. Solo owned[id] â‰¥ 1.
  */
 
 import { ref, computed, readonly } from 'vue'
-import {
-  doc,
-  getDoc,
-  onSnapshot,
-  updateDoc,
-  arrayUnion,
-  deleteField,
-  serverTimestamp,
-} from 'firebase/firestore'
-import { db } from 'src/firebase/config'
-import { useAuthStore } from 'src/stores/authStore'
-import { TOTAL_STICKERS } from 'src/data/albumData'
-import { Notify } from 'quasar'
+import { isMissingConfig } from 'src/firebase/config'
+import { useAuthStore }    from 'src/stores/authStore'
+import { TOTAL_STICKERS }  from 'src/data/albumData'
 
-// ─────────────────────────────────────────────
-//  Singleton: se comparte entre componentes
-// ─────────────────────────────────────────────
+const LS_KEY = 'album2026_owned'
+
+// â”€â”€ Singleton â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let _instance = null
 
 export function useFirebaseAlbum() {
   if (_instance) return _instance
 
-  const authStore = useAuthStore()
+  const owned   = ref({})
+  const loading = ref(false)
+  const syncing = ref(false)
+  const error   = ref(null)
 
-  // ── Estado reactivo ──────────────────────────────────────────────────
-  /** Map<stickerIdString, count> — solo figuritas poseídas */
-  const owned     = ref({})
-  const loading   = ref(false)
-  const syncing   = ref(false)
-  const error     = ref(null)
+  let _unsubFirestore = null
+  let _pendingWrites  = new Map()
+  let _flushTimer     = null
 
-  // Listener de Firestore (para cancelarlo al desmontar)
-  let _unsubscribe = null
-
-  // ── Escrituras pendientes (debounce batch) ───────────────────────────
-  const _pendingWrites = new Map()  // stickerIdStr → newCount
-  let   _flushTimer    = null
-
-  // ── Helpers ──────────────────────────────────────────────────────────
-  const userDocRef = computed(() =>
-    authStore.userId ? doc(db, 'users', authStore.userId) : null
-  )
-
-  /** Devuelve el conteo de una figurita (0 = falta) */
+  // â”€â”€ Getters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function getCount(stickerId) {
     return owned.value[String(stickerId)] ?? 0
   }
 
-  // ── Estadísticas ─────────────────────────────────────────────────────
   const stats = computed(() => {
-    const entries = Object.entries(owned.value)
-    const ownedCount    = entries.length                          // figuritas con count >= 1
-    const repeatedCount = entries.filter(([, v]) => v > 1).length
-    const missingCount  = TOTAL_STICKERS - ownedCount
-    const percent       = Math.round((ownedCount / TOTAL_STICKERS) * 100)
-    const totalDupes    = entries.reduce((acc, [, v]) => acc + Math.max(0, v - 1), 0)
-
+    const entries      = Object.entries(owned.value)
+    const ownedCount   = entries.length
+    const repeatedCount= entries.filter(([, v]) => v > 1).length
+    const missingCount = TOTAL_STICKERS - ownedCount
+    const percent      = Math.round((ownedCount / TOTAL_STICKERS) * 100)
+    const totalDupes   = entries.reduce((acc, [, v]) => acc + Math.max(0, v - 1), 0)
     return { ownedCount, repeatedCount, missingCount, percent, totalDupes, total: TOTAL_STICKERS }
   })
 
-  // ── Suscripción en tiempo real ────────────────────────────────────────
+  // â”€â”€ LocalStorage helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  function _loadFromLS() {
+    try {
+      const raw = localStorage.getItem(LS_KEY)
+      owned.value = raw ? JSON.parse(raw) : {}
+    } catch { owned.value = {} }
+  }
+
+  function _saveToLS() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(owned.value)) } catch {}
+  }
+
+  // â”€â”€ SuscripciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function subscribeToAlbum() {
-    if (!userDocRef.value) return
+    if (isMissingConfig) {
+      _loadFromLS()
+      return
+    }
+    const authStore = useAuthStore()
+    if (!authStore.userId) { _loadFromLS(); return }
+
     loading.value = true
 
-    _unsubscribe = onSnapshot(
-      userDocRef.value,
-      (snap) => {
-        if (snap.exists()) {
-          owned.value = snap.data().owned ?? {}
-        } else {
-          owned.value = {}
+    Promise.all([
+      import('firebase/firestore'),
+      import('src/firebase/config'),
+    ]).then(([{ doc, onSnapshot }, { db }]) => {
+      if (!db) { _loadFromLS(); loading.value = false; return }
+
+      const docRef = doc(db, 'users', authStore.userId)
+      _unsubFirestore = onSnapshot(
+        docRef,
+        (snap) => {
+          owned.value  = snap.exists() ? (snap.data().owned ?? {}) : {}
+          loading.value = false
+          error.value   = null
+        },
+        (err) => {
+          console.error('Firestore snapshot error:', err)
+          error.value   = err.message
+          loading.value = false
+          _loadFromLS()
         }
-        loading.value = false
-        error.value   = null
-      },
-      (err) => {
-        console.error('[useFirebaseAlbum] onSnapshot error:', err)
-        error.value   = err.message
-        loading.value = false
-        Notify.create({ type: 'warning', message: 'Sin conexión – modo offline activo', icon: 'wifi_off' })
-      }
-    )
+      )
+    }).catch(err => {
+      console.error('Firebase import error:', err)
+      _loadFromLS()
+      loading.value = false
+    })
   }
 
   function unsubscribeFromAlbum() {
-    _unsubscribe?.()
-    _unsubscribe = null
-    _instance    = null
+    _unsubFirestore?.()
+    _unsubFirestore = null
+    _instance = null
   }
 
-  // ── Actualización de una figurita (con optimistic update) ─────────────
-  async function updateSticker({ stickerId, newCount }) {
-    if (!userDocRef.value) return
-
+  // â”€â”€ Actualizar figurita â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  function updateSticker({ stickerId, newCount }) {
     const key     = String(stickerId)
     const prevVal = owned.value[key] ?? 0
 
-    // 1. Actualización optimista local instantánea
-    if (newCount <= 0) {
-      const next = { ...owned.value }
-      delete next[key]
-      owned.value = next
-    } else {
-      owned.value = { ...owned.value, [key]: newCount }
+    // Optimistic update
+    const next = { ...owned.value }
+    if (newCount <= 0) delete next[key]
+    else next[key] = newCount
+    owned.value = next
+
+    // Persistir
+    if (isMissingConfig) {
+      _saveToLS()
+      return
     }
 
-    // 2. Acumular en batch con debounce (300 ms)
     _pendingWrites.set(key, { newCount, prevVal })
     clearTimeout(_flushTimer)
-    _flushTimer = setTimeout(() => _flushToFirestore(), 300)
+    _flushTimer = setTimeout(() => _flushToFirestore(), 400)
   }
 
-  /** Envía todos los cambios acumulados en una sola escritura */
   async function _flushToFirestore() {
-    if (_pendingWrites.size === 0 || !userDocRef.value) return
-
+    if (_pendingWrites.size === 0) return
     syncing.value = true
-    const updates  = {}
+
     const snapshot = new Map(_pendingWrites)
     _pendingWrites.clear()
 
-    for (const [key, { newCount }] of snapshot) {
-      updates[`owned.${key}`] = newCount <= 0 ? deleteField() : newCount
-    }
-    updates['updatedAt'] = serverTimestamp()
-
     try {
-      await updateDoc(userDocRef.value, updates)
-    } catch (err) {
-      console.error('[useFirebaseAlbum] flush error:', err)
-      // Revertir cambios fallidos
-      const revert = { ...owned.value }
-      for (const [key, { prevVal }] of snapshot) {
-        if (prevVal <= 0) delete revert[key]
-        else revert[key] = prevVal
+      const [{ doc, updateDoc, deleteField, serverTimestamp }, { db }] =
+        await Promise.all([import('firebase/firestore'), import('src/firebase/config')])
+
+      if (!db) { syncing.value = false; return }
+
+      const authStore = useAuthStore()
+      const updates   = { updatedAt: serverTimestamp() }
+
+      for (const [key, { newCount }] of snapshot) {
+        updates[`owned.${key}`] = newCount <= 0 ? deleteField() : newCount
       }
-      owned.value = revert
-      Notify.create({ type: 'negative', message: 'Error al guardar. Revirtiendo cambios.' })
+
+      await updateDoc(doc(db, 'users', authStore.userId), updates)
+    } catch (err) {
+      console.error('Flush error:', err)
+      // Revertir
+      const reverted = { ...owned.value }
+      for (const [key, { prevVal }] of snapshot) {
+        if (prevVal <= 0) delete reverted[key]
+        else reverted[key] = prevVal
+      }
+      owned.value = reverted
     } finally {
       syncing.value = false
     }
   }
 
-  // ── Leer álbum de otro usuario (lectura única, sin listener) ──────────
+  // â”€â”€ Lectura de amigo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function getFriendAlbum(friendUid) {
+    if (isMissingConfig) return null
     try {
+      const [{ doc, getDoc }, { db }] =
+        await Promise.all([import('firebase/firestore'), import('src/firebase/config')])
+      if (!db) return null
       const snap = await getDoc(doc(db, 'users', friendUid))
-      if (snap.exists()) return snap.data()
-      return null
-    } catch (e) {
-      console.error('[useFirebaseAlbum] getFriendAlbum error:', e)
-      return null
-    }
+      return snap.exists() ? snap.data() : null
+    } catch { return null }
   }
 
-  /**
-   * Calcula las figuritas que `friendOwned` tiene repetidas
-   * y YO me faltan → candidatas para intercambio.
-   */
   function getExchangeCandidates(friendOwned) {
-    const candidates = []
-    for (const [key, count] of Object.entries(friendOwned)) {
-      if (count > 1 && getCount(Number(key)) === 0) {
-        candidates.push({ stickerId: Number(key), friendHas: count - 1 })
-      }
-    }
-    return candidates
+    return Object.entries(friendOwned)
+      .filter(([id, count]) => count > 1 && getCount(Number(id)) === 0)
+      .map(([id, count]) => ({ stickerId: Number(id), friendHas: count - 1 }))
   }
 
-  // ── Instancia singleton ───────────────────────────────────────────────
   _instance = {
-    owned:       readonly(owned),
-    loading:     readonly(loading),
-    syncing:     readonly(syncing),
-    error:       readonly(error),
+    owned:    readonly(owned),
+    loading:  readonly(loading),
+    syncing:  readonly(syncing),
+    error:    readonly(error),
     stats,
     getCount,
     subscribeToAlbum,

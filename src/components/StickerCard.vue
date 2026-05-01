@@ -39,6 +39,21 @@
       ×{{ count - 1 }}
     </q-badge>
 
+    <!-- ── Botón remover (X) ── -->
+    <q-btn
+      v-if="isOwned && !readonly"
+      flat
+      dense
+      round
+      size="xs"
+      icon="close"
+      color="white"
+      class="sticker-card__remove"
+      @click.stop="handleRemove"
+      @mousedown.stop
+      @touchstart.stop
+    />
+
     <!-- ── Tipo de figurita ── -->
     <div class="sticker-card__type-icon">
       <q-icon :name="typeIcon" size="18px" />
@@ -175,6 +190,14 @@ function handleClick() {
 
   emit('update', { stickerId: props.sticker.id, newCount })
 }
+
+// ─────────────────────────────────────────────
+//  Botón remover (X) → reset a 0
+// ─────────────────────────────────────────────
+function handleRemove() {
+  if (props.readonly) return
+  emit('update', { stickerId: props.sticker.id, newCount: 0 })
+}
 </script>
 
 <style lang="scss" scoped>
@@ -260,34 +283,40 @@ $trans:          all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   // FALTA – gris apagado
   &--missing {
-    background: rgba(0, 0, 0, 0.06);
-    border-color: rgba(0, 0, 0, 0.1);
-    color: rgba(0, 0, 0, 0.3);
+    background: #EEEEEE;
+    border-color: #BDBDBD;
+    color: #616161;
 
     .body--dark & {
-      background:   rgba(255, 255, 255, 0.06);
-      border-color: rgba(255, 255, 255, 0.1);
-      color:        rgba(255, 255, 255, 0.25);
+      background:   rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+      color:        rgba(255, 255, 255, 0.4);
     }
 
     &:hover {
-      background:   rgba(0, 0, 0, 0.1);
-      border-color: rgba(0, 0, 0, 0.2);
+      background:   #E0E0E0;
+      border-color: #9E9E9E;
       transform:    scale(1.06);
+
+      .body--dark & {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.25);
+      }
     }
   }
 
   // TENGO – color con borde del equipo
   &--owned {
-    background:   color-mix(in srgb, var(--team-color, #1565C0) 15%, white);
+    background:   #F5F5F5;
     border-color: var(--team-color, #1565C0);
     color:        var(--team-color, #1565C0);
     box-shadow:   0 2px 8px rgba(0, 0, 0, 0.12);
     transform:    scale(1.03);
 
     .body--dark & {
-      background: color-mix(in srgb, var(--team-color, #1565C0) 30%, #1e1e2e);
-      color: white;
+      background: color-mix(in srgb, var(--team-color, #1565C0) 25%, #1e1e2e);
+      color: color-mix(in srgb, var(--team-color, #1565C0) 100%, white);
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3);
     }
 
     &:hover { transform: scale(1.1); }
@@ -304,6 +333,25 @@ $trans:          all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     .sticker-card__type-icon { opacity: 0.9; }
 
     &:hover { transform: scale(1.13); }
+  }
+}
+
+// ─── Botón remover ─────────────────────────────────────────────────────
+.sticker-card__remove {
+  position:     absolute;
+  top:          -8px;
+  right:        -8px;
+  background:   rgba(244, 67, 54, 0.9) !important;
+  transition:   all 0.2s ease;
+  opacity:      0;
+
+  .sticker-card:hover & {
+    opacity: 1;
+  }
+
+  &:hover {
+    background: rgba(229, 57, 53, 1) !important;
+    transform:  scale(1.15);
   }
 }
 

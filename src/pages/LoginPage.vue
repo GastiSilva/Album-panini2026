@@ -66,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/authStore'
 import { watch } from 'vue'
@@ -78,12 +78,18 @@ const anonName  = ref('')
 async function loginAnon() {
   if (!anonName.value.trim()) return
   await authStore.loginAnonymous(anonName.value.trim())
+  if (authStore.user) router.push({ name: 'album' })
 }
 
-// Redirigir automáticamente al autenticarse
+// Recuperar usuario guardado al montar y redirigir si ya estaba logueado
+onMounted(() => {
+  authStore.initializeFromStorage()
+})
+
+// Redirigir cuando cambia authStore.user
 watch(() => authStore.user, (user) => {
   if (user) router.push({ name: 'album' })
-})
+}, { immediate: true })
 </script>
 
 <style lang="scss" scoped>

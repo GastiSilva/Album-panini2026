@@ -2,11 +2,14 @@
  * stores/authStore.js
  * Pinia store de autenticación con lazy imports de Firebase.
  * Funciona en modo local (sin .env.local) para poder usar el álbum.
+ * Persiste la sesión en localStorage.
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { Notify } from 'quasar'
 import { isMissingConfig } from 'src/firebase/config'
+
+const LS_USER_KEY = 'album2026_user'
 
 export const useAuthStore = defineStore('auth', () => {
   const user      = ref(null)
@@ -18,6 +21,27 @@ export const useAuthStore = defineStore('auth', () => {
 
   function setUser(firebaseUser) {
     user.value = firebaseUser
+    if (firebaseUser) {
+      // Guardar en localStorage (modo local e Firebase)
+      try {
+        localStorage.setItem(LS_USER_KEY, JSON.stringify(firebaseUser))
+      } catch {}
+    } else {
+      // Limpiar localStorage al logout
+      try {
+        localStorage.removeItem(LS_USER_KEY)
+      } catch {}
+    }
+  }
+
+  // Recuperar usuario del localStorage al iniciar
+  function initializeFromStorage() {
+    try {
+      const stored = localStorage.getItem(LS_USER_KEY)
+      if (stored) {
+        user.value = JSON.parse(stored)
+      }
+    } catch {}
   }
 
   async function loginWithGoogle() {
@@ -30,6 +54,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { signInWithPopup } = await import('firebase/auth')
       const { auth, googleProvider } = await import('src/firebase/config')
       const result = await signInWithPopup(auth, googleProvider)
+      user.value = result.user
       await _ensureUserDoc(result.user)
       Notify.create({ type: 'positive', message: `¡Bienvenido, ${result.user.displayName}!` })
     } catch (e) {
@@ -53,6 +78,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { auth } = await import('src/firebase/config')
       const result = await signInAnonymously(auth)
       await updateProfile(result.user, { displayName })
+      user.value = { ...result.user, displayName }
       await _ensureUserDoc({ ...result.user, displayName })
       Notify.create({ type: 'positive', message: `¡Bienvenido, ${displayName}!` })
     } catch (e) {
@@ -92,5 +118,5 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { user, loading, userName, userPhoto, userId, setUser, loginWithGoogle, loginAnonymous, logout }
+  return { user, loading, userName, userPhoto, userId, setUser, initializeFromStorage, loginWithGoogle, loginAnonymous, logout }
 })

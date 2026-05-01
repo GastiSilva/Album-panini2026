@@ -63,12 +63,6 @@ module.exports = configure(function (/* ctx */) {
           { src: 'icons/icon-512x512.png', sizes: '512x512', type: 'image/png' }
         ]
       }
-    },
-
-    sourceFiles: {
-      rootComponent: 'src/App.vue',
-      router: 'src/router/index',
-      store: 'src/stores/index',
     }
   }
 })

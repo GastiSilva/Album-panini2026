@@ -2,3 +2,4 @@ node_modules/
 .quasar/
 dist/
 .env
+.env.*

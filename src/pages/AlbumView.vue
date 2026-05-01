@@ -1,303 +1,243 @@
-<template>
-  <!--
-    AlbumView.vue
-    Vista principal: renderiza todas las secciones del álbum
-    con q-expansion-item y la grilla de StickerCard.
-  -->
-  <q-page class="album-view">
+﻿<template>
+  <q-page class="q-pa-sm">
 
-    <!-- ── Barra de búsqueda + filtros ──────────────────────────────── -->
-    <div class="album-view__toolbar q-px-md q-pt-md q-pb-sm sticky-toolbar">
-      <q-input
-        v-model="searchQuery"
-        dense
-        outlined
-        rounded
-        clearable
-        placeholder="Buscar figurita o selección…"
-        class="q-mb-sm"
-      >
-        <template #prepend><q-icon name="search" /></template>
-      </q-input>
+    <!-- Barra de busqueda -->
+    <q-input
+      v-model="searchText"
+      filled dense clearable
+      label="Buscar figurita (nombre o numero)"
+      class="q-mb-md"
+    >
+      <template #prepend><q-icon name="search" /></template>
+    </q-input>
 
-      <div class="row q-gutter-sm items-center">
-        <!-- Filtro por estado -->
-        <q-btn-toggle
-          v-model="filterState"
-          dense
-          rounded
-          no-caps
-          unelevated
-          :options="STATE_FILTERS"
-          color="grey-4"
-          text-color="dark"
-          toggle-color="primary"
-          class="filter-toggle"
-        />
-
-        <!-- Filtro por confederación -->
-        <q-select
-          v-model="filterConf"
-          :options="CONF_OPTIONS"
-          dense
-          rounded
-          outlined
-          emit-value
-          map-options
-          clearable
-          placeholder="Confederación"
-          style="min-width:140px; font-size:12px"
+    <!-- Modo busqueda: resultados planos -->
+    <template v-if="searchText">
+      <div class="row q-gutter-xs justify-start">
+        <StickerCard
+          v-for="s in searchResults"
+          :key="s.id"
+          :sticker="s"
+          :count="album.getCount(s.id)"
+          @update="album.updateSticker"
         />
       </div>
-    </div>
-
-    <!-- ── Skeleton mientras carga ─────────────────────────────────── -->
-    <template v-if="album.loading.value">
-      <div class="q-pa-md">
-        <q-skeleton type="rect" height="50px" class="q-mb-sm" v-for="n in 6" :key="n" />
+      <div v-if="!searchResults.length" class="text-center text-grey q-mt-xl">
+        <q-icon name="search_off" size="3rem" />
+        <p>Sin resultados para "{{ searchText }}"</p>
       </div>
     </template>
 
-    <!-- ── Contenido del álbum ─────────────────────────────────────── -->
-    <q-list v-else padding class="album-view__list">
-      <template v-for="section in filteredSections" :key="section.id">
-        <q-expansion-item
-          v-model="openSections[section.id]"
-          :header-class="`section-header section-header--${section.confederation || 'special'}`"
-          :style="`--sec-color: ${section.color}`"
-          expand-separator
-          dense-toggle
-          switch-toggle-side
-        >
-          <!-- ── Header personalizado ── -->
-          <template #header>
-            <q-item-section avatar>
-              <q-avatar size="36px" :style="`background:${section.color}20; color:${section.color}`">
-                <span v-if="section.flag" style="font-size:20px">{{ section.flag }}</span>
-                <q-icon v-else :name="section.icon" size="20px" />
-              </q-avatar>
-            </q-item-section>
+    <!-- Vista por grupos -->
+    <template v-else>
 
-            <q-item-section>
-              <q-item-label class="text-weight-bold">{{ section.name }}</q-item-label>
-              <q-item-label caption>{{ sectionProgress(section) }}</q-item-label>
-            </q-item-section>
-
-            <q-item-section side>
-              <!-- Mini barra de progreso por sección -->
-              <q-circular-progress
-                :value="sectionPercent(section)"
-                size="32px"
-                :thickness="0.22"
-                :color="sectionPercent(section) === 100 ? 'positive' : 'primary'"
-                track-color="grey-3"
-                class="q-mr-sm"
-              >
-                <span style="font-size:8px; font-weight:700">{{ sectionPercent(section) }}%</span>
-              </q-circular-progress>
-            </q-item-section>
-          </template>
-
-          <!-- ── Grilla de figuritas ── -->
-          <div class="sticker-grid q-pa-sm">
-            <StickerCard
-              v-for="sticker in visibleStickers(section)"
-              :key="sticker.id"
-              :sticker="sticker"
-              :count="album.getCount(sticker.id)"
-              :team-color="section.color"
-              @update="album.updateSticker"
-            />
-          </div>
-
-          <!-- Mensaje si todos filtrados -->
-          <div
-            v-if="visibleStickers(section).length === 0"
-            class="text-center text-grey q-py-md text-caption"
-          >
-            No hay figuritas con este filtro
-          </div>
-        </q-expansion-item>
-      </template>
-
-      <!-- Sin resultados -->
-      <div v-if="filteredSections.length === 0" class="text-center q-pa-xl">
-        <q-icon name="search_off" size="48px" color="grey-4" />
-        <div class="text-grey q-mt-sm">Sin resultados para "{{ searchQuery }}"</div>
-      </div>
-    </q-list>
-
-    <!-- ── FAB de estadísticas ─────────────────────────────────────── -->
-    <q-page-sticky position="bottom-right" :offset="[18, 18]">
-      <q-fab
-        v-model="fabOpen"
-        color="primary"
-        icon="bar_chart"
-        direction="up"
-        vertical-actions-align="right"
+      <!-- ESPECIALES -->
+      <q-expansion-item
+        v-model="openSections['especiales']"
+        expand-separator
+        header-class="text-white"
+        :style="{ backgroundColor: ESPECIALES_SECTION.color }"
+        class="rounded-borders q-mb-sm overflow-hidden"
       >
-        <q-fab-action color="positive"    icon="check_circle"  :label="`${album.stats.value.ownedCount} Tengo`"   label-position="left" />
-        <q-fab-action color="negative"    icon="cancel"        :label="`${album.stats.value.missingCount} Faltan`" label-position="left" />
-        <q-fab-action color="deep-orange" icon="star"          :label="`${album.stats.value.totalDupes} Repet.`"  label-position="left" />
-        <q-fab-action color="accent"      icon="percent"       :label="`${album.stats.value.percent}% completo`" label-position="left" text-color="dark" />
-        <q-fab-action
-          color="secondary"
-          icon="expand_less"
-          label="Abrir todo"
-          label-position="left"
-          @click="expandAll"
-        />
-        <q-fab-action
-          color="grey"
-          icon="expand_more"
-          label="Cerrar todo"
-          label-position="left"
-          @click="collapseAll"
-        />
-      </q-fab>
+        <template #header>
+          <q-item-section>
+            <div class="text-subtitle1 text-weight-bold">ESPECIALES</div>
+            <div class="text-caption">
+              {{ ownedInSection(ESPECIALES_SECTION) }} / {{ ESPECIALES_SECTION.stickers.length }}
+            </div>
+          </q-item-section>
+          <q-item-section side>
+            <q-chip dense color="white" text-color="dark" size="sm">
+              {{ sectionPercent(ESPECIALES_SECTION) }}%
+            </q-chip>
+          </q-item-section>
+        </template>
+        <div class="q-pa-sm bg-grey-10 row q-gutter-xs justify-start">
+          <StickerCard
+            v-for="s in ESPECIALES_SECTION.stickers"
+            :key="s.id"
+            :sticker="s"
+            :count="album.getCount(s.id)"
+            @update="album.updateSticker"
+          />
+        </div>
+      </q-expansion-item>
+
+      <!-- GRUPOS A-L -->
+      <q-expansion-item
+        v-for="group in GROUP_SECTIONS"
+        :key="group.id"
+        v-model="openSections[group.id]"
+        expand-separator
+        header-class="text-white"
+        :style="{ backgroundColor: group.color }"
+        class="rounded-borders q-mb-sm overflow-hidden"
+      >
+        <template #header>
+          <q-item-section>
+            <div class="text-subtitle1 text-weight-bold">{{ group.label }}</div>
+            <div class="text-caption">
+              {{ ownedInGroup(group) }} / {{ stickersInGroup(group) }}
+            </div>
+          </q-item-section>
+          <q-item-section side>
+            <q-chip dense color="white" text-color="dark" size="sm">
+              {{ groupPercent(group) }}%
+            </q-chip>
+          </q-item-section>
+        </template>
+
+        <div class="q-pa-xs">
+          <q-expansion-item
+            v-for="team in group.teams"
+            :key="team.id"
+            v-model="openTeams[team.id]"
+            dense
+            expand-separator
+            class="q-mb-xs rounded-borders overflow-hidden"
+            header-class="text-white"
+            :style="{ backgroundColor: darken(group.color) }"
+          >
+            <template #header>
+              <q-item-section avatar>
+                <img :src="team.flag" :alt="team.name" style="height:24px; width:auto; border-radius:2px" />
+              </q-item-section>
+              <q-item-section>
+                <div class="text-body2 text-weight-medium">{{ team.name }}</div>
+                <div class="text-caption">
+                  {{ ownedInTeam(team) }} / {{ team.stickers.length }}
+                </div>
+              </q-item-section>
+              <q-item-section side>
+                <q-linear-progress
+                  :value="teamPercent(team) / 100"
+                  color="white"
+                  track-color="rgba(255,255,255,0.3)"
+                  size="6px"
+                  style="width:60px"
+                  rounded
+                />
+              </q-item-section>
+            </template>
+            <div class="q-pa-sm bg-grey-10 row q-gutter-xs justify-start">
+              <StickerCard
+                v-for="s in team.stickers"
+                :key="s.id"
+                :sticker="s"
+                :count="album.getCount(s.id)"
+                @update="album.updateSticker"
+              />
+            </div>
+          </q-expansion-item>
+        </div>
+      </q-expansion-item>
+
+    </template>
+
+    <!-- FAB Stats -->
+    <q-page-sticky position="bottom-right" :offset="[18, 18]">
+      <q-btn fab icon="bar_chart" color="primary" @click="showStats = true" />
     </q-page-sticky>
+
+    <!-- Dialog Stats -->
+    <q-dialog v-model="showStats">
+      <q-card style="min-width:280px">
+        <q-card-section class="bg-primary text-white">
+          <div class="text-h6">Mi Album</div>
+        </q-card-section>
+        <q-card-section>
+          <q-list>
+            <q-item>
+              <q-item-section>Completado</q-item-section>
+              <q-item-section side>
+                <q-chip color="primary" text-color="white">{{ album.stats.value.percent }}%</q-chip>
+              </q-item-section>
+            </q-item>
+            <q-item>
+              <q-item-section>Tengo</q-item-section>
+              <q-item-section side class="text-positive text-weight-bold">{{ album.stats.value.ownedCount }}</q-item-section>
+            </q-item>
+            <q-item>
+              <q-item-section>Me faltan</q-item-section>
+              <q-item-section side class="text-negative text-weight-bold">{{ album.stats.value.missingCount }}</q-item-section>
+            </q-item>
+            <q-item>
+              <q-item-section>Repetidas</q-item-section>
+              <q-item-section side class="text-warning text-weight-bold">{{ album.stats.value.repeatedCount }}</q-item-section>
+            </q-item>
+          </q-list>
+          <q-linear-progress :value="album.stats.value.percent / 100" color="primary" size="12px" rounded class="q-mt-sm" />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cerrar" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
   </q-page>
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, onUnmounted, watch } from 'vue'
-import { ALBUM_SECTIONS, SECTIONS_BY_CONFEDERATION } from 'src/data/albumData'
+import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { useFirebaseAlbum } from 'src/composables/useFirebaseAlbum'
+import { ESPECIALES_SECTION, GROUP_SECTIONS, ALBUM_SECTIONS } from 'src/data/albumData'
 import StickerCard from 'src/components/StickerCard.vue'
 
-// ── Composable del álbum ─────────────────────────────────────────────
-const album = useFirebaseAlbum()
+const album      = useFirebaseAlbum()
+const showStats  = ref(false)
+const searchText = ref('')
+
+const openSections = reactive({ especiales: false })
+GROUP_SECTIONS.forEach(g => { openSections[g.id] = false })
+
+const openTeams = reactive({})
+GROUP_SECTIONS.forEach(g => g.teams.forEach(t => { openTeams[t.id] = false }))
+
+const searchResults = computed(() => {
+  const q = searchText.value.trim().toLowerCase()
+  if (!q) return []
+  return ALBUM_SECTIONS.flatMap(s => s.stickers).filter(s =>
+    String(s.id).includes(q) ||
+    (s.name || '').toLowerCase().includes(q) ||
+    (s.team || '').toLowerCase().includes(q)
+  )
+})
+
+function ownedInSection(section) {
+  return section.stickers.filter(s => album.getCount(s.id) > 0).length
+}
+function sectionPercent(section) {
+  if (!section.stickers.length) return 0
+  return Math.round((ownedInSection(section) / section.stickers.length) * 100)
+}
+function stickersInGroup(group) {
+  return group.teams.reduce((a, t) => a + t.stickers.length, 0)
+}
+function ownedInGroup(group) {
+  return group.teams.reduce((a, t) => a + ownedInTeam(t), 0)
+}
+function groupPercent(group) {
+  const total = stickersInGroup(group)
+  if (!total) return 0
+  return Math.round((ownedInGroup(group) / total) * 100)
+}
+function ownedInTeam(team) {
+  return team.stickers.filter(s => album.getCount(s.id) > 0).length
+}
+function teamPercent(team) {
+  if (!team.stickers.length) return 0
+  return Math.round((ownedInTeam(team) / team.stickers.length) * 100)
+}
+function darken(hex) {
+  try {
+    const h = hex.replace('#','')
+    const r = Math.max(0, parseInt(h.slice(0,2),16) - 40)
+    const g = Math.max(0, parseInt(h.slice(2,4),16) - 40)
+    const b = Math.max(0, parseInt(h.slice(4,6),16) - 40)
+    return `rgb(${r},${g},${b})`
+  } catch { return hex }
+}
 
 onMounted(() => album.subscribeToAlbum())
 onUnmounted(() => album.unsubscribeFromAlbum())
-
-// ── Estado local ─────────────────────────────────────────────────────
-const searchQuery = ref('')
-const filterState = ref('all')
-const filterConf  = ref(null)
-const fabOpen     = ref(false)
-
-// Track de secciones abiertas
-const openSections = reactive(
-  Object.fromEntries(ALBUM_SECTIONS.map((s) => [s.id, false]))
-)
-// Abrir la sección Especiales por defecto
-openSections['especiales'] = true
-
-// ── Opciones de filtros ──────────────────────────────────────────────
-const STATE_FILTERS = [
-  { label: 'Todas',    value: 'all'      },
-  { label: 'Faltan',   value: 'missing'  },
-  { label: 'Tengo',    value: 'owned'    },
-  { label: 'Repetidas',value: 'repeated' },
-]
-
-const CONF_OPTIONS = [
-  ...SECTIONS_BY_CONFEDERATION.map((c) => ({ label: c.name, value: c.code })),
-]
-
-// ── Lógica de filtrado ────────────────────────────────────────────────
-function stickerMatchesFilter(sticker) {
-  const count = album.getCount(sticker.id)
-  if (filterState.value === 'missing'  && count !== 0)  return false
-  if (filterState.value === 'owned'    && count < 1)    return false
-  if (filterState.value === 'repeated' && count < 2)    return false
-  return true
-}
-
-function visibleStickers(section) {
-  if (filterState.value === 'all' && !searchQuery.value) return section.stickers
-  return section.stickers.filter((s) => {
-    if (searchQuery.value) {
-      const q = searchQuery.value.toLowerCase()
-      const matches =
-        String(s.id).includes(q) ||
-        s.label.toLowerCase().includes(q) ||
-        section.name.toLowerCase().includes(q)
-      if (!matches) return false
-    }
-    return stickerMatchesFilter(s)
-  })
-}
-
-const filteredSections = computed(() => {
-  return ALBUM_SECTIONS.filter((section) => {
-    // Filtro de confederación
-    if (filterConf.value && section.confederation !== filterConf.value) return false
-    // Si hay búsqueda o filtro de estado, ocultar secciones vacías
-    if (filterState.value !== 'all' || searchQuery.value) {
-      return visibleStickers(section).length > 0
-    }
-    return true
-  })
-})
-
-// Auto-expandir secciones cuando se filtra
-watch([filterState, filterConf, searchQuery], () => {
-  if (filterState.value !== 'all' || searchQuery.value) {
-    filteredSections.value.forEach((s) => { openSections[s.id] = true })
-  }
-})
-
-// ── Progreso por sección ─────────────────────────────────────────────
-function sectionProgress(section) {
-  const owned = section.stickers.filter((s) => album.getCount(s.id) >= 1).length
-  const total = section.stickers.length
-  return `${owned} / ${total} figuritas`
-}
-
-function sectionPercent(section) {
-  const owned = section.stickers.filter((s) => album.getCount(s.id) >= 1).length
-  return Math.round((owned / section.stickers.length) * 100)
-}
-
-// ── Expandir / colapsar todo ─────────────────────────────────────────
-function expandAll()  { ALBUM_SECTIONS.forEach((s) => { openSections[s.id] = true }) }
-function collapseAll(){ ALBUM_SECTIONS.forEach((s) => { openSections[s.id] = false }) }
 </script>
-
-<style lang="scss" scoped>
-.album-view {
-  max-width: 900px;
-  margin: 0 auto;
-
-  // ── Toolbar sticky ─────────────────────────────────────────────────
-  .sticky-toolbar {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: var(--q-color-background, white);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-
-    .body--dark & { background: var(--q-color-dark-page, #121212); }
-  }
-
-  // ── Encabezado de sección ───────────────────────────────────────────
-  :deep(.section-header) {
-    border-left: 4px solid var(--sec-color, #1565C0);
-    transition: background 0.2s;
-
-    &:hover { background: rgba(0,0,0,0.03); }
-    .body--dark &:hover { background: rgba(255,255,255,0.04); }
-  }
-
-  // ── Grilla de figuritas ─────────────────────────────────────────────
-  .sticker-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    justify-content: flex-start;
-    background: var(--q-color-background, white);
-
-    .body--dark & { background: rgba(255,255,255,0.02); }
-
-    @media (max-width: 400px) { gap: 4px; }
-  }
-}
-
-// Estilos del filtro toggle
-.filter-toggle :deep(.q-btn) {
-  font-size: 11px !important;
-  padding: 4px 8px !important;
-}
-</style>
