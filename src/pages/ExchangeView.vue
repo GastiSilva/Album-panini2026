@@ -46,6 +46,7 @@
     </q-card>
 
     <!-- ── Buscar amigo ───────────────────────────────────────────── -->
+    <!-- ── Buscar amigo ───────────────────────────────────────────── -->
     <q-card flat bordered>
       <q-card-section>
         <div class="text-subtitle1 text-weight-bold q-mb-sm">
@@ -53,16 +54,17 @@
         </div>
 
         <q-input
-          v-model="friendUid"
+          v-model="friendAlias"
           outlined
           dense
           rounded
           clearable
-          label="UID del amigo (desde Firebase)"
-          placeholder="Pega el UID de tu amigo"
+          label="Apodo del amigo"
+          placeholder="Ej: Germo"
           class="q-mb-sm"
+          @keyup.enter="loadFriend"
         >
-          <template #prepend><q-icon name="badge" /></template>
+          <template #prepend><q-icon name="alternate_email" /></template>
           <template #append>
             <q-btn
               round flat dense
@@ -74,16 +76,28 @@
           </template>
         </q-input>
 
-        <!-- Tu propio UID para compartir -->
+        <!-- Tu propio Apodo para compartir -->
         <div class="text-caption text-grey q-mb-md">
-          Tu UID:
+          Tu Apodo:
           <code
-            class="uid-chip"
-            @click="copyUid"
+            class="uid-chip text-weight-bold"
+            @click="copyAlias"
             title="Click para copiar"
-          >{{ authStore.userId }}</code>
-          <q-icon name="content_copy" size="xs" class="q-ml-xs cursor-pointer" @click="copyUid" />
+          >@{{ album.alias?.value || 'No definido' }}</code>
+          <q-icon name="content_copy" size="xs" class="q-ml-xs cursor-pointer" @click="copyAlias" />
+          
+          <!-- Botoncito para editar -->
+          <q-btn 
+            flat round dense 
+            icon="edit" 
+            size="xs" 
+            color="primary" 
+            class="q-ml-sm" 
+            @click="editarApodo" 
+          />
         </div>
+
+        <!-- Resultado de la comparación -->
 
         <!-- Resultado de la comparación -->
         <template v-if="friendData">
@@ -156,7 +170,7 @@ import StickerCard from 'src/components/StickerCard.vue'
 const authStore     = useAuthStore()
 const album         = useFirebaseAlbum()
 
-const friendUid     = ref('')
+const friendAlias   = ref('')
 const friendData    = ref(null)
 const loadingFriend = ref(false)
 
@@ -165,7 +179,7 @@ const myRepeated = computed(() =>
   Object.entries(album.owned.value)
     .filter(([, v]) => v > 1)
     .map(([id, count]) => {
-      const sticker = STICKERS_MAP[Number(id)]
+      const sticker = STICKERS_MAP[String(id)]
       if (!sticker) return null
       const section = ALBUM_SECTIONS.find((s) => s.id === sticker.sectionId)
       return { sticker, count, color: section?.color || '#1565C0', sectionName: sticker.sectionName }
@@ -185,10 +199,10 @@ const repeatedBySection = computed(() => {
 
 // ── Comparativa con amigo ─────────────────────────────────────────────
 async function loadFriend() {
-  if (!friendUid.value.trim()) return
+  if (!friendAlias.value.trim()) return
   loadingFriend.value = true
   try {
-    const data = await album.getFriendAlbum(friendUid.value.trim())
+    const data = await album.getFriendAlbumByAlias(friendAlias.value.trim())
     if (data) {
       friendData.value = data
     } else {
@@ -215,11 +229,22 @@ const iCanGive = computed(() => {
   })
 })
 
-// ── Copiar UID ───────────────────────────────────────────────────────
-function copyUid() {
-  copyToClipboard(authStore.userId).then(() => {
-    Notify.create({ type: 'positive', message: 'UID copiado al portapapeles', icon: 'content_copy' })
+// ── Copiar Apodo ─────────────────────────────────────────────────────
+function copyAlias() {
+  copyToClipboard(album.alias?.value || '').then(() => {
+    Notify.create({ type: 'positive', message: 'Apodo copiado al portapapeles', icon: 'content_copy' })
   })
+}
+
+// ── Editar Apodo ─────────────────────────────────────────────────────
+function editarApodo() {
+  const nuevoApodo = prompt('Ingresá tu nuevo apodo (mínimo 3 letras):', album.alias?.value || '')
+  if (nuevoApodo && nuevoApodo.trim().length >= 3) {
+    album.saveUserAlias(nuevoApodo.trim())
+    Notify.create({ type: 'positive', message: '¡Apodo actualizado!' })
+  } else if (nuevoApodo !== null) {
+    Notify.create({ type: 'negative', message: 'El apodo debe tener al menos 3 letras' })
+  }
 }
 </script>
 

@@ -3,7 +3,12 @@
     <q-card class="login-card q-pa-lg shadow-10">
       <!-- Logo / Título -->
       <div class="text-center q-mb-lg">
-        <div class="text-h3 q-mb-xs">⚽</div>
+        <div class="q-mb-md">
+          <img 
+            src="../assets/trionda.png" 
+            style="width: 120px; height: auto;" 
+          />
+        </div>
         <div class="text-h5 text-weight-bold text-primary">Álbum Mundial 2026</div>
         <div class="text-caption text-grey q-mt-xs">Controla tus figuritas con amigos</div>
       </div>

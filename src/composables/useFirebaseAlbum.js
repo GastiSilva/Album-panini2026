@@ -1,13 +1,11 @@
 ﻿/**
  * useFirebaseAlbum.js
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * Gestiona el estado del Ã¡lbum.
- * - Con Firebase configurado â†’ Firestore en tiempo real
- * - Sin Firebase (.env.local vacÃ­o) â†’ localStorage (modo offline local)
+ * - Con Firebase configurado → Firestore en tiempo real
+ * - Sin Firebase (.env.local vacío) → localStorage (modo offline local)
  *
  * Esquema Firestore:
- *   users/{uid} â†’ { owned: Map<"stickerID": count> }
- *   count = 0 nunca se guarda. Solo owned[id] â‰¥ 1.
+ *   users/{uid} → { owned: Map<"stickerID": count> }
+ *   count = 0 nunca se guarda. Solo owned[id] ≥ 1.
  */
 
 import { ref, computed, readonly } from 'vue'
@@ -17,13 +15,14 @@ import { TOTAL_STICKERS }  from 'src/data/albumData'
 
 const LS_KEY = 'album2026_owned'
 
-// â”€â”€ Singleton â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ Singleton â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â€
 let _instance = null
 
 export function useFirebaseAlbum() {
   if (_instance) return _instance
 
   const owned   = ref({})
+  const alias   = ref(null)
   const loading = ref(false)
   const syncing = ref(false)
   const error   = ref(null)
@@ -32,7 +31,7 @@ export function useFirebaseAlbum() {
   let _pendingWrites  = new Map()
   let _flushTimer     = null
 
-  // â”€â”€ Getters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â”€â”€ Getters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â€
   function getCount(stickerId) {
     return owned.value[String(stickerId)] ?? 0
   }
@@ -81,6 +80,7 @@ export function useFirebaseAlbum() {
         docRef,
         (snap) => {
           owned.value  = snap.exists() ? (snap.data().owned ?? {}) : {}
+          alias.value  = snap.exists() ? (snap.data().alias ?? null) : null
           loading.value = false
           error.value   = null
         },
@@ -161,26 +161,63 @@ export function useFirebaseAlbum() {
     }
   }
 
+
+async function saveUserAlias(newAlias) {
+    if (isMissingConfig) {
+      alias.value = newAlias
+      return
+    }
+    try {
+      const [{ doc, setDoc }, { db }] =
+        await Promise.all([import('firebase/firestore'), import('src/firebase/config')])
+      if (!db) return
+      
+      const authStore = useAuthStore()
+      // Guardamos el alias normal y uno en minúsculas para facilitar la búsqueda
+      await setDoc(doc(db, 'users', authStore.userId), {
+        alias: newAlias,
+        aliasLowerCase: newAlias.toLowerCase()
+      }, { merge: true })
+      
+      alias.value = newAlias
+    } catch (err) {
+      console.error('Error al guardar el alias:', err)
+    }
+  }
+
+
   // â”€â”€ Lectura de amigo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  async function getFriendAlbum(friendUid) {
+async function getFriendAlbumByAlias(friendAlias) {
     if (isMissingConfig) return null
     try {
-      const [{ doc, getDoc }, { db }] =
+      const [{ collection, query, where, getDocs }, { db }] =
         await Promise.all([import('firebase/firestore'), import('src/firebase/config')])
       if (!db) return null
-      const snap = await getDoc(doc(db, 'users', friendUid))
-      return snap.exists() ? snap.data() : null
-    } catch { return null }
+      
+      const usersRef = collection(db, 'users')
+      const q = query(usersRef, where("aliasLowerCase", "==", friendAlias.toLowerCase()))
+      const querySnapshot = await getDocs(q)
+      
+      if (!querySnapshot.empty) {
+        // Retornamos el primer documento que coincida
+        const docSnap = querySnapshot.docs[0]
+        return docSnap.data()
+      }
+      return null
+    } catch (err) { 
+      console.error('Error buscando amigo:', err)
+      return null 
+    }
   }
 
-  function getExchangeCandidates(friendOwned) {
+function getExchangeCandidates(friendOwned) {
     return Object.entries(friendOwned)
-      .filter(([id, count]) => count > 1 && getCount(Number(id)) === 0)
-      .map(([id, count]) => ({ stickerId: Number(id), friendHas: count - 1 }))
+      .filter(([id, count]) => count > 1 && getCount(String(id)) === 0)
+      .map(([id, count]) => ({ stickerId: String(id), friendHas: count - 1 }))
   }
-
   _instance = {
     owned:    readonly(owned),
+    alias:    readonly(alias),
     loading:  readonly(loading),
     syncing:  readonly(syncing),
     error:    readonly(error),
@@ -189,8 +226,9 @@ export function useFirebaseAlbum() {
     subscribeToAlbum,
     unsubscribeFromAlbum,
     updateSticker,
-    getFriendAlbum,
+    getFriendAlbumByAlias,
     getExchangeCandidates,
+    saveUserAlias,
   }
 
   return _instance

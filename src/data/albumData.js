@@ -39,7 +39,7 @@ export const CONFEDERATIONS = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-//  SECCIÓN ESPECIALES  (IDs 1-20)
+//  SECCIÓN ESPECIALES  (IDs 1-19)
 // ─────────────────────────────────────────────────────────────────────────
 const ESPECIALES_STICKERS = [
   { id: 1,  type: 'special', label: 'Portada Álbum' },
@@ -61,7 +61,6 @@ const ESPECIALES_STICKERS = [
   { id: 17, type: 'special', label: 'Sede – Toronto (Canadá)' },
   { id: 18, type: 'special', label: 'Sede – Vancouver (Canadá)' },
   { id: 19, type: 'special', label: 'Sede – Guadalajara (México)' },
-  { id: 20, type: 'special', label: 'Sede – Ciudad de México' },
 ]
 
 export const ESPECIALES_SECTION = {
@@ -152,8 +151,9 @@ const TEAMS_RAW = [
 // ─────────────────────────────────────────────────────────────────────────
 const STICKER_TYPES_20 = [
   { type: 'shield', label: 'Escudo' },
+  ...Array.from({ length: 11 }, (_, i) => ({ type: 'player', label: `Jugador ${i + 1}` })),
   { type: 'team',   label: 'Foto de Equipo' },
-  ...Array.from({ length: 18 }, (_, i) => ({ type: 'player', label: `Jugador ${i + 1}` })),
+  ...Array.from({ length: 7 }, (_, i) => ({ type: 'player', label: `Jugador ${i + 12}` })),
 ]
 
 function buildTeamStickers(teamId, teamName) {
@@ -205,8 +205,39 @@ export const GROUP_SECTIONS = Object.entries(WC_GROUPS).map(([key, group]) => ({
 // ─────────────────────────────────────────────────────────────────────────
 //  ÁLBUM COMPLETO (plano, para búsquedas)
 // ─────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+//  SECCIÓN COCA-COLA (CC) - 14 figuritas
+// ─────────────────────────────────────────────────────────────────────────
+const COCACOLA_STICKERS = [
+  { id: 'cc-1',  type: 'special', label: 'Botella Coca-Cola Original' },
+  { id: 'cc-2',  type: 'special', label: 'Botella Coca-Cola Zero' },
+  { id: 'cc-3',  type: 'special', label: 'Botella Sprite' },
+  { id: 'cc-4',  type: 'special', label: 'Botella Fanta Naranja' },
+  { id: 'cc-5',  type: 'special', label: 'Botella Fanta Uva' },
+  { id: 'cc-6',  type: 'special', label: 'Botella Powerade' },
+  { id: 'cc-7',  type: 'special', label: 'Botella Dasani' },
+  { id: 'cc-8',  type: 'special', label: 'Lata Coca-Cola Original' },
+  { id: 'cc-9',  type: 'special', label: 'Lata Coca-Cola Zero' },
+  { id: 'cc-10', type: 'special', label: 'Lata Sprite' },
+  { id: 'cc-11', type: 'special', label: 'Lata Fanta Naranja' },
+  { id: 'cc-12', type: 'special', label: 'Lata Fanta Uva' },
+  { id: 'cc-13', type: 'special', label: 'Lata Powerade' },
+  { id: 'cc-14', type: 'special', label: 'Lata Dasani' },
+]
+
+export const COCACOLA_SECTION = {
+  id: 'cocacola',
+  name: 'Coca-Cola (CC)',
+  subtitle: 'Botellas y Latas Oficiales',
+  icon: 'local_drink',
+  color: '#DC143C',
+  bg: '#FFF0F0',
+  isSpecial: true,
+  stickers: COCACOLA_STICKERS,
+}
+
 export const TEAMS_SECTIONS = TEAMS_RAW.map(t => TEAMS_MAP[t.id])
-export const ALBUM_SECTIONS  = [ESPECIALES_SECTION, ...TEAMS_SECTIONS]
+export const ALBUM_SECTIONS  = [ESPECIALES_SECTION, ...TEAMS_SECTIONS, COCACOLA_SECTION]
 
 /** Mapa plano stickerID → info */
 export const STICKERS_MAP = (() => {
@@ -219,5 +250,5 @@ export const STICKERS_MAP = (() => {
   return map
 })()
 
-export const TOTAL_STICKERS = 20 + (48 * 20) // 20 especiales + 48 equipos × 20 figuritas = 980
+export const TOTAL_STICKERS = 19 + (48 * 20) + 14 // 19 especiales + 48 equipos × 20 figuritas + 14 Coca-Cola = 1007
 

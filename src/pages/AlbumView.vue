@@ -132,6 +132,38 @@
         </div>
       </q-expansion-item>
 
+      <!-- COCA-COLA -->
+      <q-expansion-item
+        v-model="openSections['cocacola']"
+        expand-separator
+        header-class="text-white"
+        :style="{ backgroundColor: COCACOLA_SECTION.color }"
+        class="rounded-borders q-mb-sm overflow-hidden"
+      >
+        <template #header>
+          <q-item-section>
+            <div class="text-subtitle1 text-weight-bold">Bebida de Coca-Cola</div>
+            <div class="text-caption">
+              {{ ownedInSection(COCACOLA_SECTION) }} / {{ COCACOLA_SECTION.stickers.length }}
+            </div>
+          </q-item-section>
+          <q-item-section side>
+            <q-chip dense color="white" text-color="dark" size="sm">
+              {{ sectionPercent(COCACOLA_SECTION) }}%
+            </q-chip>
+          </q-item-section>
+        </template>
+        <div class="q-pa-sm bg-grey-10 row q-gutter-xs justify-start">
+          <StickerCard
+            v-for="s in COCACOLA_SECTION.stickers"
+            :key="s.id"
+            :sticker="s"
+            :count="album.getCount(s.id)"
+            @update="album.updateSticker"
+          />
+        </div>
+      </q-expansion-item>
+
     </template>
 
     <!-- FAB Stats -->
@@ -154,16 +186,16 @@
               </q-item-section>
             </q-item>
             <q-item>
-              <q-item-section>Tengo</q-item-section>
+              <q-item-section>Figuritas</q-item-section>
               <q-item-section side class="text-positive text-weight-bold">{{ album.stats.value.ownedCount }}</q-item-section>
+            </q-item>
+            <q-item>
+              <q-item-section>Duplicadas</q-item-section>
+              <q-item-section side class="text-warning text-weight-bold">{{ album.stats.value.totalDupes }}</q-item-section>
             </q-item>
             <q-item>
               <q-item-section>Me faltan</q-item-section>
               <q-item-section side class="text-negative text-weight-bold">{{ album.stats.value.missingCount }}</q-item-section>
-            </q-item>
-            <q-item>
-              <q-item-section>Repetidas</q-item-section>
-              <q-item-section side class="text-warning text-weight-bold">{{ album.stats.value.repeatedCount }}</q-item-section>
             </q-item>
           </q-list>
           <q-linear-progress :value="album.stats.value.percent / 100" color="primary" size="12px" rounded class="q-mt-sm" />
@@ -180,14 +212,14 @@
 <script setup>
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { useFirebaseAlbum } from 'src/composables/useFirebaseAlbum'
-import { ESPECIALES_SECTION, GROUP_SECTIONS, ALBUM_SECTIONS } from 'src/data/albumData'
+import { ESPECIALES_SECTION, GROUP_SECTIONS, ALBUM_SECTIONS, COCACOLA_SECTION } from 'src/data/albumData'
 import StickerCard from 'src/components/StickerCard.vue'
 
 const album      = useFirebaseAlbum()
 const showStats  = ref(false)
 const searchText = ref('')
 
-const openSections = reactive({ especiales: false })
+const openSections = reactive({ especiales: false, cocacola: false })
 GROUP_SECTIONS.forEach(g => { openSections[g.id] = false })
 
 const openTeams = reactive({})

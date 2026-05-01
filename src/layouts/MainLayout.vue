@@ -5,8 +5,11 @@
       <q-toolbar>
         <q-btn flat dense round icon="menu" aria-label="Menú" @click="drawer = !drawer" />
 
-        <q-toolbar-title class="layout-header__title">
-          <span class="text-weight-bold">⚽ Mundial 2026</span>
+        <q-toolbar-title class="layout-header__title row items-center">
+          <!-- Acá llamás a tu logo. Si le pusiste otro nombre, cambialo acá -->
+          <img src="../assets/trionda.png" style="height: 28px; margin-right: 10px;" />
+          
+          <span class="text-weight-bold">Mundial 2026</span>
         </q-toolbar-title>
 
         <!-- Progreso global compacto -->
@@ -67,7 +70,13 @@
       <q-scroll-area class="fit">
         <!-- Stats rápidos -->
         <div class="layout-drawer__stats q-pa-md">
-          <div class="text-h6 text-weight-bold q-mb-xs">📊 Mi Álbum</div>
+          <!-- Contenedor flex para alinear el logo y el texto -->
+          <div class="row items-center q-mb-xs">
+            <!-- Acordate de poner tu imagen en la carpeta public -->
+            <img src="../assets/World-Cup-2026-Logo-PNG.webp" style="height: 32px; margin-right: 10px;" />
+            <div class="text-h6 text-weight-bold">Mi Álbum</div>
+          </div>
+          
           <div class="row q-gutter-sm">
             <q-chip dense color="positive"   text-color="white" icon="check_circle">{{ album.stats.value.ownedCount }} Tengo</q-chip>
             <q-chip dense color="negative"   text-color="white" icon="cancel">{{ album.stats.value.missingCount }} Faltan</q-chip>
