@@ -16,7 +16,7 @@
     :class="[stateClass, { 'sticker-card--readonly': readonly }]"
     :style="cardStyle"
     role="button"
-    :aria-label="`Figurita ${sticker.id} – ${sticker.label} – ${stateLabel}`"
+    :aria-label="`Figurita ${sticker.localId || sticker.id} – ${sticker.label} – ${stateLabel}`"
     :tabindex="readonly ? -1 : 0"
     @click="handleClick"
     @keydown.enter="handleClick"
@@ -60,7 +60,7 @@
     </div>
 
     <!-- ── Número ── -->
-    <div class="sticker-card__number">{{ sticker.id }}</div>
+    <div class="sticker-card__number">{{ sticker.localId || sticker.id }}</div>
 
     <!-- ── Estado visual (check / estrella) ── -->
     <transition name="pop">
@@ -79,7 +79,7 @@
       :delay="300"
       class="sticker-card__tooltip"
     >
-      <strong>#{{ sticker.id }}</strong> {{ sticker.label }}<br />
+      <strong>#{{ sticker.localId || sticker.id }}</strong> {{ sticker.label }}<br />
       <span class="text-caption">{{ stateLabel }}</span>
     </q-tooltip>
 

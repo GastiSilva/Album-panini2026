@@ -148,16 +148,23 @@ const TEAMS_RAW = [
 ]
 
 // ─────────────────────────────────────────────────────────────────────────
-//  Helpers de stickers por equipo
+//  Helpers de stickers por equipo (20 figuritas cada uno)
 // ─────────────────────────────────────────────────────────────────────────
-const PLAYER_NAMES = Array.from({ length: 18 }, (_, i) => `Jugador ${i + 1}`)
+const STICKER_TYPES_20 = [
+  { type: 'shield', label: 'Escudo' },
+  { type: 'team',   label: 'Foto de Equipo' },
+  ...Array.from({ length: 18 }, (_, i) => ({ type: 'player', label: `Jugador ${i + 1}` })),
+]
 
-function buildTeamStickers(startId) {
-  return [
-    { id: startId,     type: 'shield', label: 'Escudo' },
-    { id: startId + 1, type: 'team',   label: 'Foto de Equipo' },
-    ...PLAYER_NAMES.map((label, i) => ({ id: startId + 2 + i, type: 'player', label })),
-  ]
+function buildTeamStickers(teamId, teamName) {
+  return STICKER_TYPES_20.map((sticker, index) => ({
+    id: `${teamId}-${index + 1}`,
+    localId: index + 1,
+    type: sticker.type,
+    label: sticker.label,
+    teamId,
+    teamName,
+  }))
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -165,8 +172,7 @@ function buildTeamStickers(startId) {
 // ─────────────────────────────────────────────────────────────────────────
 export const TEAMS_MAP = {}
 
-TEAMS_RAW.forEach((team, index) => {
-  const startId = 21 + index * 20
+TEAMS_RAW.forEach((team) => {
   const conf    = CONFEDERATIONS[team.confederation]
   const section = {
     ...team,
@@ -174,9 +180,7 @@ TEAMS_RAW.forEach((team, index) => {
     icon:      'shield',
     color:     conf.color,
     bg:        conf.bg,
-    startId,
-    endId:     startId + 19,
-    stickers:  buildTeamStickers(startId),
+    stickers:  buildTeamStickers(team.id, team.name),
   }
   TEAMS_MAP[team.id] = section
 })
@@ -215,5 +219,5 @@ export const STICKERS_MAP = (() => {
   return map
 })()
 
-export const TOTAL_STICKERS = Object.keys(STICKERS_MAP).length // 980
+export const TOTAL_STICKERS = 20 + (48 * 20) // 20 especiales + 48 equipos × 20 figuritas = 980
 
