@@ -1,0 +1,1 @@
+var e=`/Album-panini2026/assets/trionda-Cht9Pjws.png`;export{e as t};
