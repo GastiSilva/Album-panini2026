@@ -1,0 +1,35 @@
+{
+  "name": "album-panini2026",
+  "version": "1.0.0",
+  "description": "PWA para controlar el álbum de figuritas del Mundial 2026",
+  "productName": "Álbum Mundial 2026",
+  "author": "",
+  "private": true,
+  "scripts": {
+    "dev": "quasar dev",
+    "build": "quasar build -m pwa",
+    "lint": "eslint --ext .js,.vue ./src",
+    "format": "prettier --write \"**/*.{js,vue,scss,html,md}\""
+  },
+  "dependencies": {
+    "@quasar/extras": "^1.16.11",
+    "firebase": "^10.12.0",
+    "pinia": "^2.1.7",
+    "quasar": "^2.16.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@quasar/app-vite": "^1.9.0",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "autoprefixer": "^10.4.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-vue": "^9.26.0",
+    "prettier": "^3.3.0",
+    "vite": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
