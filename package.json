@@ -1,0 +1,45 @@
+{
+  "name": "album-panini2026",
+  "version": "0.0.1",
+  "description": "PWA para el álbum de figuritas del Mundial 2026",
+  "productName": "Album Panini 2026",
+  "author": "GastiSilva",
+  "private": true,
+  "scripts": {
+    "lint": "eslint --ext .js,.vue ./src",
+    "format": "prettier --write \"**/*.{js,vue,scss,html,md,json}\" --ignore-path .gitignore",
+    "test": "echo \"No tests configured\" && exit 0",
+    "dev": "quasar dev",
+    "build": "quasar build",
+    "build:pwa": "quasar build -m pwa"
+  },
+  "dependencies": {
+    "@quasar/extras": "^1.16.9",
+    "firebase": "^10.12.0",
+    "pinia": "^2.1.7",
+    "quasar": "^2.14.0",
+    "register-service-worker": "^1.7.2",
+    "vue": "^3.4.0",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@quasar/app-vite": "^1.9.0",
+    "@vue/eslint-config-standard": "^8.0.1",
+    "autoprefixer": "^10.4.17",
+    "eslint": "^8.57.0",
+    "eslint-plugin-vue": "^9.22.0",
+    "prettier": "^3.2.5",
+    "workbox-build": "^7.0.0",
+    "workbox-cacheable-response": "^7.0.0",
+    "workbox-core": "^7.0.0",
+    "workbox-expiration": "^7.0.0",
+    "workbox-precaching": "^7.0.0",
+    "workbox-routing": "^7.0.0",
+    "workbox-strategies": "^7.0.0"
+  },
+  "engines": {
+    "node": "^20 || ^18 || ^16",
+    "npm": ">= 6.13.4",
+    "yarn": ">= 1.21.1"
+  }
+}
