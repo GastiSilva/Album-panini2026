@@ -1,5 +1,4 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { useAuthStore } from 'src/stores/authStore'
 
 const routes = [
   {
@@ -38,8 +37,13 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
+  if (!to.meta.requiresAuth) return true
+
+  // Importar dinámicamente para asegurar que Pinia ya esté activa
+  const { useAuthStore } = await import('src/stores/authStore')
   const authStore = useAuthStore()
-  if (to.meta.requiresAuth && !authStore.user) {
+
+  if (!authStore.user) {
     return { name: 'login' }
   }
 })

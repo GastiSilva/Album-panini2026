@@ -1,22 +1,17 @@
 /**
  * stores/authStore.js
- * Pinia store para el estado de autenticación.
+ * Pinia store de autenticación con lazy imports de Firebase.
+ * Funciona en modo local (sin .env.local) para poder usar el álbum.
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import {
-  signInWithPopup,
-  signInAnonymously,
-  signOut,
-  updateProfile,
-} from 'firebase/auth'
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
-import { auth, db, googleProvider } from 'src/firebase/config'
 import { Notify } from 'quasar'
+import { isMissingConfig } from 'src/firebase/config'
 
 export const useAuthStore = defineStore('auth', () => {
   const user      = ref(null)
   const loading   = ref(false)
+
   const userName  = computed(() => user.value?.displayName || user.value?.email || 'Anónimo')
   const userPhoto = computed(() => user.value?.photoURL || null)
   const userId    = computed(() => user.value?.uid || null)
@@ -26,8 +21,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function loginWithGoogle() {
+    if (isMissingConfig) {
+      Notify.create({ type: 'warning', message: 'Configura Firebase en .env.local primero' })
+      return
+    }
     loading.value = true
     try {
+      const { signInWithPopup } = await import('firebase/auth')
+      const { auth, googleProvider } = await import('src/firebase/config')
       const result = await signInWithPopup(auth, googleProvider)
       await _ensureUserDoc(result.user)
       Notify.create({ type: 'positive', message: `¡Bienvenido, ${result.user.displayName}!` })
@@ -40,8 +41,16 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function loginAnonymous(displayName) {
+    if (isMissingConfig) {
+      // Sin Firebase: login local para usar el álbum de forma offline
+      user.value = { uid: 'local-' + Date.now(), displayName, photoURL: null, email: null, isLocal: true }
+      Notify.create({ type: 'positive', message: `¡Bienvenido, ${displayName}! (modo local)` })
+      return
+    }
     loading.value = true
     try {
+      const { signInAnonymously, updateProfile } = await import('firebase/auth')
+      const { auth } = await import('src/firebase/config')
       const result = await signInAnonymously(auth)
       await updateProfile(result.user, { displayName })
       await _ensureUserDoc({ ...result.user, displayName })
@@ -55,21 +64,31 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
-    await signOut(auth)
+    if (!isMissingConfig) {
+      const { signOut } = await import('firebase/auth')
+      const { auth }    = await import('src/firebase/config')
+      await signOut(auth).catch(console.warn)
+    }
     user.value = null
   }
 
   async function _ensureUserDoc(firebaseUser) {
-    const ref = doc(db, 'users', firebaseUser.uid)
-    const snap = await getDoc(ref)
-    if (!snap.exists()) {
-      await setDoc(ref, {
-        displayName: firebaseUser.displayName || 'Sin nombre',
-        photoURL:    firebaseUser.photoURL || null,
-        email:       firebaseUser.email || null,
-        createdAt:   serverTimestamp(),
-        // owned: {}  ← se crea vacío al primer update
-      })
+    try {
+      const { doc, setDoc, getDoc, serverTimestamp } = await import('firebase/firestore')
+      const { db } = await import('src/firebase/config')
+      if (!db) return
+      const docRef = doc(db, 'users', firebaseUser.uid)
+      const snap   = await getDoc(docRef)
+      if (!snap.exists()) {
+        await setDoc(docRef, {
+          displayName: firebaseUser.displayName || 'Sin nombre',
+          photoURL:    firebaseUser.photoURL    || null,
+          email:       firebaseUser.email       || null,
+          createdAt:   serverTimestamp(),
+        })
+      }
+    } catch (e) {
+      console.warn('_ensureUserDoc error:', e)
     }
   }
 

@@ -1,5 +1,5 @@
 <template>
-  <q-page class="login-page flex flex-center">
+  <div class="login-page flex flex-center">
     <q-card class="login-card q-pa-lg shadow-10">
       <!-- Logo / Título -->
       <div class="text-center q-mb-lg">
@@ -62,7 +62,7 @@
         🔒 Tus datos se sincronizan en tiempo real con Firebase
       </div>
     </q-card>
-  </q-page>
+  </div>
 </template>
 
 <script setup>
@@ -90,6 +90,11 @@ watch(() => authStore.user, (user) => {
 .login-page {
   background: linear-gradient(160deg, #0D47A1 0%, #1565C0 50%, #1976D2 100%);
   min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
 }
 
 .login-card {

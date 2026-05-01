@@ -22,7 +22,7 @@ module.exports = configure(function (/* ctx */) {
 
     framework: {
       config: {
-        dark: 'auto',
+        dark: false,
         brand: {
           primary: '#1565C0',
           secondary: '#E53935',
@@ -39,7 +39,7 @@ module.exports = configure(function (/* ctx */) {
       plugins: ['Notify', 'Dialog', 'Loading', 'LocalStorage']
     },
 
-    animations: 'all',
+    animations: [],
 
     pwa: {
       workboxMode: 'generateSW',
@@ -69,9 +69,6 @@ module.exports = configure(function (/* ctx */) {
       rootComponent: 'src/App.vue',
       router: 'src/router/index',
       store: 'src/stores/index',
-      pwaRegisterServiceWorker: 'src-pwa/register-service-worker',
-      pwaServiceWorker: 'src-pwa/custom-service-worker',
-      pwaManifestFile: 'src-pwa/manifest.json'
     }
   }
 })
