@@ -6,6 +6,11 @@
 import { isMissingConfig } from 'src/firebase/config'
 
 export default async function ({ app }) {
+  // Inicializar tema del usuario
+  const { useThemePreference } = await import('src/composables/useThemePreference')
+  const { initializeTheme } = useThemePreference()
+  initializeTheme()
+
   if (isMissingConfig) {
     // Sin Firebase: solo recuperar usuario del localStorage en modo local
     const { useAuthStore } = await import('src/stores/authStore')

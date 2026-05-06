@@ -1,0 +1,19 @@
+{
+  "typescript.validate.enable": false,
+  "javascript.validate.enable": false,
+  "typescript.enablePromptUseWorkspaceTsdk": false,
+  "[javascript]": {
+    "validate": false
+  },
+  "[typescript]": {
+    "validate": false
+  },
+  "[vue]": {
+    "editor.defaultFormatter": "Vue.volar",
+    "validate": false
+  },
+  "volar.takeOverMode.enabled": true,
+  "files.associations": {
+    "*.vue": "vue"
+  }
+}

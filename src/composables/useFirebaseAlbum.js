@@ -96,11 +96,17 @@ export function useFirebaseAlbum() {
       _loadFromLS()
       loading.value = false
     })
+
+    subscribeToExchanges()
   }
 
   function unsubscribeFromAlbum() {
     _unsubFirestore?.()
     _unsubFirestore = null
+    _unsubExchangesIn?.()
+    _unsubExchangesIn = null
+    _unsubExchangesOut?.()
+    _unsubExchangesOut = null
     _instance = null
   }
 
@@ -199,9 +205,9 @@ async function getFriendAlbumByAlias(friendAlias) {
       const querySnapshot = await getDocs(q)
       
       if (!querySnapshot.empty) {
-        // Retornamos el primer documento que coincida
+        // Retornamos el primer documento que coincida (incluimos el uid)
         const docSnap = querySnapshot.docs[0]
-        return docSnap.data()
+        return { uid: docSnap.id, ...docSnap.data() }
       }
       return null
     } catch (err) { 
@@ -215,6 +221,100 @@ function getExchangeCandidates(friendOwned) {
       .filter(([id, count]) => count > 1 && getCount(String(id)) === 0)
       .map(([id, count]) => ({ stickerId: String(id), friendHas: count - 1 }))
   }
+
+  // ── Exchanges / Propuestas ────────────────────────────────────────────────
+  const pendingProposals = ref([])  // propuestas entrantes (pendientes)
+  const sentProposals    = ref([])  // propuestas enviadas por mí
+
+  const unreadCount = computed(() =>
+    pendingProposals.value.filter(p => !p.readByReceiver).length
+  )
+
+  let _unsubExchangesIn  = null
+  let _unsubExchangesOut = null
+
+  function subscribeToExchanges() {
+    if (isMissingConfig) return
+    const authStore = useAuthStore()
+    if (!authStore.userId) return
+
+    Promise.all([
+      import('firebase/firestore'),
+      import('src/firebase/config'),
+    ]).then(([{ collection, query, where, onSnapshot }, { db }]) => {
+      if (!db) return
+
+      // Propuestas entrantes (yo soy el destinatario)
+      const qIn = query(collection(db, 'exchanges'), where('toUid', '==', authStore.userId))
+      _unsubExchangesIn = onSnapshot(qIn, (snap) => {
+        pendingProposals.value = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(p => p.status === 'pending')
+          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+      })
+
+      // Propuestas enviadas (yo soy el remitente)
+      const qOut = query(collection(db, 'exchanges'), where('fromUid', '==', authStore.userId))
+      _unsubExchangesOut = onSnapshot(qOut, (snap) => {
+        sentProposals.value = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+      })
+    }).catch(err => console.error('subscribeToExchanges error:', err))
+  }
+
+  async function sendExchangeProposal({ toUid, toAlias, senderGives, receiverGives }) {
+    if (isMissingConfig) return
+    const [{ collection, addDoc, serverTimestamp }, { db }] =
+      await Promise.all([import('firebase/firestore'), import('src/firebase/config')])
+    if (!db) return
+
+    const authStore = useAuthStore()
+    await addDoc(collection(db, 'exchanges'), {
+      fromUid:         authStore.userId,
+      fromAlias:       alias.value || authStore.userName,
+      fromDisplayName: authStore.userName,
+      fromPhoto:       authStore.userPhoto || null,
+      toUid,
+      toAlias,
+      senderGives,    // IDs de figuritas que YO doy
+      receiverGives,  // IDs de figuritas que el AMIGO da
+      status:          'pending',
+      readByReceiver:  false,
+      createdAt:       serverTimestamp(),
+      updatedAt:       serverTimestamp(),
+    })
+  }
+
+  async function respondToProposal(exchangeId, accept) {
+    const [{ doc, updateDoc, serverTimestamp }, { db }] =
+      await Promise.all([import('firebase/firestore'), import('src/firebase/config')])
+    if (!db) return
+    await updateDoc(doc(db, 'exchanges', exchangeId), {
+      status:         accept ? 'accepted' : 'rejected',
+      readByReceiver: true,
+      updatedAt:      serverTimestamp(),
+    })
+  }
+
+  async function markProposalRead(exchangeId) {
+    if (isMissingConfig) return
+    const [{ doc, updateDoc }, { db }] =
+      await Promise.all([import('firebase/firestore'), import('src/firebase/config')])
+    if (!db) return
+    await updateDoc(doc(db, 'exchanges', exchangeId), { readByReceiver: true })
+  }
+
+  async function cancelProposal(exchangeId) {
+    const [{ doc, updateDoc, serverTimestamp }, { db }] =
+      await Promise.all([import('firebase/firestore'), import('src/firebase/config')])
+    if (!db) return
+    await updateDoc(doc(db, 'exchanges', exchangeId), {
+      status:    'cancelled',
+      updatedAt: serverTimestamp(),
+    })
+  }
+
   _instance = {
     owned:    readonly(owned),
     alias:    readonly(alias),
@@ -222,6 +322,9 @@ function getExchangeCandidates(friendOwned) {
     syncing:  readonly(syncing),
     error:    readonly(error),
     stats,
+    pendingProposals: readonly(pendingProposals),
+    sentProposals:    readonly(sentProposals),
+    unreadCount,
     getCount,
     subscribeToAlbum,
     unsubscribeFromAlbum,
@@ -229,6 +332,10 @@ function getExchangeCandidates(friendOwned) {
     getFriendAlbumByAlias,
     getExchangeCandidates,
     saveUserAlias,
+    sendExchangeProposal,
+    respondToProposal,
+    markProposalRead,
+    cancelProposal,
   }
 
   return _instance

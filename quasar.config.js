@@ -6,7 +6,7 @@ export default configure(function (ctx) {
   return {
     eslint: { fix: true, warnings: true, errors: true },
 
-    boot: ['firebase'],
+    boot: ['firebase', 'i18n'],
 
     css: ['app.scss'],
 

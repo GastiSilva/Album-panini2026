@@ -17,5 +17,24 @@ service cloud.firestore {
 
       allow delete: if false; // No permitir borrar cuentas desde el cliente
     }
+
+    // ── Propuestas de intercambio ──────────────────────────────────────────
+    match /exchanges/{exchangeId} {
+      // Solo las partes involucradas pueden leer
+      allow read: if request.auth != null
+        && (resource.data.fromUid == request.auth.uid
+         || resource.data.toUid   == request.auth.uid);
+
+      // Solo el remitente puede crear (y debe poner su propio uid en fromUid)
+      allow create: if request.auth != null
+        && request.resource.data.fromUid == request.auth.uid;
+
+      // Ambas partes pueden actualizar (remitente cancela, receptor acepta/rechaza)
+      allow update: if request.auth != null
+        && (resource.data.fromUid == request.auth.uid
+         || resource.data.toUid   == request.auth.uid);
+
+      allow delete: if false;
+    }
   }
 }

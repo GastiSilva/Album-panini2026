@@ -5,7 +5,7 @@
     <q-input
       v-model="searchText"
       filled dense clearable
-      label="Buscar figurita (nombre o numero)"
+      :label="t('album.search')"
       class="q-mb-md"
     >
       <template #prepend><q-icon name="search" /></template>
@@ -24,7 +24,7 @@
       </div>
       <div v-if="!searchResults.length" class="text-center text-grey q-mt-xl">
         <q-icon name="search_off" size="3rem" />
-        <p>Sin resultados para "{{ searchText }}"</p>
+        <p>{{ t('album.noResults') }} "{{ searchText }}"</p>
       </div>
     </template>
 
@@ -41,7 +41,7 @@
       >
         <template #header>
           <q-item-section>
-            <div class="text-subtitle1 text-weight-bold">ESPECIALES</div>
+            <div class="text-subtitle1 text-weight-bold">{{ t('specials') }}</div>
             <div class="text-caption">
               {{ ownedInSection(ESPECIALES_SECTION) }} / {{ ESPECIALES_SECTION.stickers.length }}
             </div>
@@ -75,7 +75,7 @@
       >
         <template #header>
           <q-item-section>
-            <div class="text-subtitle1 text-weight-bold">{{ group.label }}</div>
+            <div class="text-subtitle1 text-weight-bold">{{ t('groups.' + group.key) }}</div>
             <div class="text-caption">
               {{ ownedInGroup(group) }} / {{ stickersInGroup(group) }}
             </div>
@@ -103,7 +103,7 @@
                 <img :src="team.flag" :alt="team.name" style="height:24px; width:auto; border-radius:2px" />
               </q-item-section>
               <q-item-section>
-                <div class="text-body2 text-weight-medium">{{ team.name }}</div>
+                <div class="text-body2 text-weight-medium">{{ getCountryName(team.id) }}</div>
                 <div class="text-caption">
                   {{ ownedInTeam(team) }} / {{ team.stickers.length }}
                 </div>
@@ -142,7 +142,7 @@
       >
         <template #header>
           <q-item-section>
-            <div class="text-subtitle1 text-weight-bold">Bebida de Coca-Cola</div>
+            <div class="text-subtitle1 text-weight-bold">{{ t('beverages') }}</div>
             <div class="text-caption">
               {{ ownedInSection(COCACOLA_SECTION) }} / {{ COCACOLA_SECTION.stickers.length }}
             </div>
@@ -211,10 +211,14 @@
 
 <script setup>
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
+import { useLanguage } from 'src/composables/useLanguage'
+import { useCountryNames } from 'src/composables/useCountryNames'
 import { useFirebaseAlbum } from 'src/composables/useFirebaseAlbum'
 import { ESPECIALES_SECTION, GROUP_SECTIONS, ALBUM_SECTIONS, COCACOLA_SECTION } from 'src/data/albumData'
 import StickerCard from 'src/components/StickerCard.vue'
 
+const { t } = useLanguage()
+const { getCountryName } = useCountryNames()
 const album      = useFirebaseAlbum()
 const showStats  = ref(false)
 const searchText = ref('')

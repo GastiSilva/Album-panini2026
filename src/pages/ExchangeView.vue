@@ -1,26 +1,26 @@
 <template>
   <q-page class="exchange-view q-pa-md">
     <div class="text-h6 text-weight-bold q-mb-md">
-      <q-icon name="swap_horiz" class="q-mr-sm" />Intercambios con amigos
+      <q-icon name="swap_horiz" class="q-mr-sm" />{{ t('exchange.title') }}
     </div>
 
     <!-- ── Mis repetidas ──────────────────────────────────────────── -->
     <q-card flat bordered class="q-mb-lg">
       <q-card-section class="q-pb-sm">
         <div class="text-subtitle1 text-weight-bold">
-          <q-icon name="star" color="deep-orange" /> Mis figuritas repetidas
+          <q-icon name="star" color="deep-orange" /> {{ t('exchange.myDuplicates') }}
           <q-badge color="deep-orange" class="q-ml-sm" v-if="myRepeated.length">
             {{ myRepeated.length }} tipos · {{ album.stats.value.totalDupes }} extras
           </q-badge>
         </div>
-        <div class="text-caption text-grey">Estas son las que puedes ofrecer para intercambio</div>
+        <div class="text-caption text-grey">{{ t('exchange.myDuplicatesDesc') }}</div>
       </q-card-section>
 
       <q-separator />
 
       <q-card-section v-if="myRepeated.length === 0" class="text-center text-grey q-py-lg">
         <q-icon name="sentiment_satisfied" size="40px" color="grey-4" />
-        <div class="q-mt-sm">Aún no tienes figuritas repetidas</div>
+        <div class="q-mt-sm">{{ t('exchange.noDuplicates') }}</div>
       </q-card-section>
 
       <q-card-section v-else class="q-pt-sm">
@@ -44,13 +44,11 @@
         </div>
       </q-card-section>
     </q-card>
-
-    <!-- ── Buscar amigo ───────────────────────────────────────────── -->
     <!-- ── Buscar amigo ───────────────────────────────────────────── -->
     <q-card flat bordered>
       <q-card-section>
         <div class="text-subtitle1 text-weight-bold q-mb-sm">
-          <q-icon name="people" color="primary" /> Comparar con un amigo
+          <q-icon name="people" color="primary" /> {{ t('exchange.compareWithFriend') }}
         </div>
 
         <q-input
@@ -59,8 +57,8 @@
           dense
           rounded
           clearable
-          label="Apodo del amigo"
-          placeholder="Ej: Germo"
+          :label="t('exchange.friendAlias')"
+          :placeholder="t('exchange.friendAliasPlaceholder')"
           class="q-mb-sm"
           @keyup.enter="loadFriend"
         >
@@ -78,11 +76,11 @@
 
         <!-- Tu propio Apodo para compartir -->
         <div class="text-caption text-grey q-mb-md">
-          Tu Apodo:
+          {{ t('exchange.yourAlias') }}
           <code
             class="uid-chip text-weight-bold"
             @click="copyAlias"
-            title="Click para copiar"
+            :title="t('exchange.copy')"
           >@{{ album.alias?.value || 'No definido' }}</code>
           <q-icon name="content_copy" size="xs" class="q-ml-xs cursor-pointer" @click="copyAlias" />
           
@@ -96,9 +94,6 @@
             @click="editarApodo" 
           />
         </div>
-
-        <!-- Resultado de la comparación -->
-
         <!-- Resultado de la comparación -->
         <template v-if="friendData">
           <q-separator class="q-mb-md" />
@@ -117,28 +112,30 @@
 
           <!-- Figuritas que el amigo tiene repetidas y yo me faltan -->
           <div class="text-subtitle2 text-weight-bold q-mb-sm text-positive">
-            <q-icon name="arrow_downward" /> Me puede dar (él repite, yo falta)
+            <q-icon name="arrow_downward" /> {{ t('exchange.gives') }}
           </div>
           <div v-if="theyCanGive.length === 0" class="text-caption text-grey q-mb-md">
             No hay coincidencias en este momento
           </div>
           <div v-else class="sticker-row q-mb-md">
-            <StickerCard
+            <div
               v-for="item in theyCanGive"
               :key="item.stickerId"
-              :sticker="STICKERS_MAP[item.stickerId]"
-              :count="0"
-              readonly
+              style="position:relative; display:inline-block"
             >
-              <template #default>
-                <q-badge color="positive" floating>+{{ item.friendHas }}</q-badge>
-              </template>
-            </StickerCard>
+              <StickerCard
+                v-if="STICKERS_MAP[item.stickerId]"
+                :sticker="STICKERS_MAP[item.stickerId]"
+                :count="0"
+                readonly
+              />
+              <q-badge color="positive" floating>+{{ item.friendHas }}</q-badge>
+            </div>
           </div>
 
           <!-- Figuritas que yo tengo repetidas y él le faltan -->
           <div class="text-subtitle2 text-weight-bold q-mb-sm text-deep-orange">
-            <q-icon name="arrow_upward" /> Yo le puedo dar (yo repito, él falta)
+            <q-icon name="arrow_upward" /> {{ t('exchange.youGive') }}
           </div>
           <div v-if="iCanGive.length === 0" class="text-caption text-grey">
             No hay coincidencias en este momento
@@ -153,9 +150,133 @@
               readonly
             />
           </div>
+
+          <!-- ── Botón proponer intercambio ── -->
+          <div class="q-mt-lg flex flex-center">
+            <template v-if="alreadySentToFriend">
+              <q-btn
+                flat rounded
+                color="grey"
+                icon="check_circle"
+                :label="t('common.loading')"
+                disable
+              />
+            </template>
+            <template v-else-if="theyCanGive.length > 0 || iCanGive.length > 0">
+              <q-btn
+                unelevated rounded
+                color="primary"
+                icon="handshake"
+                label="{{ t('exchange.title') }}"
+                @click="showProposeDialog = true"
+              />
+            </template>
+          </div>
         </template>
       </q-card-section>
     </q-card>
+
+    <!-- ── Mis propuestas enviadas ───────────────────────────────────── -->
+    <q-card v-if="album.sentProposals.value.length > 0" flat bordered class="q-mt-lg">
+      <q-card-section class="q-pb-sm">
+        <div class="text-subtitle1 text-weight-bold">
+          <q-icon name="send" color="primary" /> {{ t('exchange.title') }}
+        </div>
+      </q-card-section>
+      <q-separator />
+      <q-list separator>
+        <q-item v-for="p in album.sentProposals.value" :key="p.id">
+          <q-item-section avatar>
+            <q-avatar color="primary" text-color="white" size="38px">
+              <span>{{ (p.toAlias || '?')[0].toUpperCase() }}</span>
+            </q-avatar>
+          </q-item-section>
+          <q-item-section>
+            <q-item-label class="text-weight-bold">@{{ p.toAlias }}</q-item-label>
+          <q-item-label caption>
+              Doy {{ p.senderGives?.length ?? 0 }} · Recibo {{ p.receiverGives?.length ?? 0 }}
+            </q-item-label>
+          </q-item-section>
+          <q-item-section side>
+            <q-badge
+              :color="statusColor(p.status)"
+              :label="statusLabel(p.status)"
+            />
+            <q-btn
+              v-if="p.status === 'pending'"
+              flat dense round size="sm"
+              icon="cancel"
+              color="negative"
+              class="q-mt-xs"
+              :title="t('common.error')"
+              @click="cancelProp(p.id)"
+            />
+          </q-item-section>
+        </q-item>
+      </q-list>
+    </q-card>
+
+    <!-- ── Dialog: Proponer intercambio ─────────────────────────────── -->
+    <q-dialog v-model="showProposeDialog" persistent>
+      <q-card style="min-width: 320px; max-width: 480px">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6"><q-icon name="handshake" class="q-mr-sm" />{{ t('exchange.title') }}</div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section>
+          <div class="text-caption text-grey q-mb-md">
+            Se le enviará una notificación a
+            <strong>@{{ friendData?.alias }}</strong> para que se junten a intercambiar.
+          </div>
+
+          <div class="text-subtitle2 text-positive q-mb-xs">
+            <q-icon name="arrow_downward" /> {{ t('exchange.gives') }} ({{ theyCanGive.length }} {{ t('exchange.stickers') }})
+          </div>
+          <div class="sticker-row q-mb-md">
+            <q-badge
+              v-for="item in theyCanGive.slice(0, 12)"
+              :key="item.stickerId"
+              color="positive"
+              class="q-ma-xs"
+              style="font-size:11px"
+            >#{{ item.stickerId }}</q-badge>
+            <span v-if="theyCanGive.length > 12" class="text-caption text-grey q-ml-xs">
+              +{{ theyCanGive.length - 12 }} más
+            </span>
+          </div>
+
+          <div class="text-subtitle2 text-deep-orange q-mb-xs">
+            <q-icon name="arrow_upward" /> {{ t('exchange.youGive') }} ({{ iCanGive.length }} {{ t('exchange.stickers') }})
+          </div>
+          <div class="sticker-row q-mb-md">
+            <q-badge
+              v-for="item in iCanGive.slice(0, 12)"
+              :key="item.sticker.id"
+              color="deep-orange"
+              class="q-ma-xs"
+              style="font-size:11px"
+            >#{{ item.sticker.id }}</q-badge>
+            <span v-if="iCanGive.length > 12" class="text-caption text-grey q-ml-xs">
+              +{{ iCanGive.length - 12 }} más
+            </span>
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="Cancelar" v-close-popup />
+          <q-btn
+            unelevated rounded
+            color="primary"
+            icon="send"
+            label="Enviar propuesta"
+            :loading="sendingProposal"
+            @click="sendProposal"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -163,16 +284,22 @@
 import { ref, computed } from 'vue'
 import { copyToClipboard, Notify } from 'quasar'
 import { useAuthStore } from 'src/stores/authStore'
+import { useLanguage } from 'src/composables/useLanguage'
 import { useFirebaseAlbum } from 'src/composables/useFirebaseAlbum'
 import { STICKERS_MAP, ALBUM_SECTIONS } from 'src/data/albumData'
 import StickerCard from 'src/components/StickerCard.vue'
 
 const authStore     = useAuthStore()
 const album         = useFirebaseAlbum()
+const { t }         = useLanguage()
 
 const friendAlias   = ref('')
 const friendData    = ref(null)
 const loadingFriend = ref(false)
+
+// Dialog de propuesta
+const showProposeDialog = ref(false)
+const sendingProposal   = ref(false)
 
 // ── Mis repetidas ─────────────────────────────────────────────────────
 const myRepeated = computed(() =>
@@ -201,13 +328,13 @@ const repeatedBySection = computed(() => {
 async function loadFriend() {
   if (!friendAlias.value.trim()) return
   loadingFriend.value = true
+  friendData.value = null
   try {
     const data = await album.getFriendAlbumByAlias(friendAlias.value.trim())
     if (data) {
       friendData.value = data
     } else {
-      Notify.create({ type: 'warning', message: 'Usuario no encontrado' })
-      friendData.value = null
+      Notify.create({ type: 'warning', message: t('common.error') })
     }
   } finally {
     loadingFriend.value = false
@@ -229,10 +356,58 @@ const iCanGive = computed(() => {
   })
 })
 
+// ¿Ya envié una propuesta pendiente a este amigo?
+const alreadySentToFriend = computed(() => {
+  if (!friendData.value?.uid) return false
+  return album.sentProposals.value.some(
+    p => p.toUid === friendData.value.uid && p.status === 'pending'
+  )
+})
+
+// ── Enviar propuesta ──────────────────────────────────────────────────
+async function sendProposal() {
+  if (!friendData.value?.uid) return
+  sendingProposal.value = true
+  try {
+    await album.sendExchangeProposal({
+      toUid:         friendData.value.uid,
+      toAlias:       friendData.value.alias || friendData.value.displayName,
+      senderGives:   iCanGive.value.map(i => String(i.sticker.id)),
+      receiverGives: theyCanGive.value.map(i => i.stickerId),
+    })
+    showProposeDialog.value = false
+    Notify.create({ type: 'positive', message: t('exchange.proposalsAccepted'), icon: 'handshake' })
+  } catch (err) {
+    Notify.create({ type: 'negative', message: 'Error al enviar la propuesta' })
+    console.error(err)
+  } finally {
+    sendingProposal.value = false
+  }
+}
+
+// ── Cancelar propuesta enviada ────────────────────────────────────────
+async function cancelProp(exchangeId) {
+  try {
+    await album.cancelProposal(exchangeId)
+    Notify.create({ type: 'info', message: 'Propuesta cancelada' })
+  } catch {
+    Notify.create({ type: 'negative', message: 'Error al cancelar' })
+  }
+}
+
+// ── Helpers de estado ─────────────────────────────────────────────────
+function statusColor(status) {
+  return { pending: 'amber', accepted: 'positive', rejected: 'negative', cancelled: 'grey' }[status] ?? 'grey'
+}
+function statusLabel(status) {
+  const labels = { pending: 'Pendiente', accepted: 'Aceptada', rejected: 'Rechazada', cancelled: 'Cancelada' }
+  return labels[status] ?? status
+}
+
 // ── Copiar Apodo ─────────────────────────────────────────────────────
 function copyAlias() {
   copyToClipboard(album.alias?.value || '').then(() => {
-    Notify.create({ type: 'positive', message: 'Apodo copiado al portapapeles', icon: 'content_copy' })
+    Notify.create({ type: 'positive', message: t('exchange.copy'), icon: 'content_copy' })
   })
 }
 
@@ -241,9 +416,9 @@ function editarApodo() {
   const nuevoApodo = prompt('Ingresá tu nuevo apodo (mínimo 3 letras):', album.alias?.value || '')
   if (nuevoApodo && nuevoApodo.trim().length >= 3) {
     album.saveUserAlias(nuevoApodo.trim())
-    Notify.create({ type: 'positive', message: '¡Apodo actualizado!' })
+    Notify.create({ type: 'positive', message: t('common.success') })
   } else if (nuevoApodo !== null) {
-    Notify.create({ type: 'negative', message: 'El apodo debe tener al menos 3 letras' })
+    Notify.create({ type: 'negative', message: t('common.error') })
   }
 }
 </script>

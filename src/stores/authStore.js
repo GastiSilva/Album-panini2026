@@ -54,7 +54,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { signInWithPopup } = await import('firebase/auth')
       const { auth, googleProvider } = await import('src/firebase/config')
       const result = await signInWithPopup(auth, googleProvider)
-      user.value = result.user
+      setUser(result.user)
       await _ensureUserDoc(result.user)
       Notify.create({ type: 'positive', message: `¡Bienvenido, ${result.user.displayName}!` })
     } catch (e) {
@@ -68,7 +68,8 @@ export const useAuthStore = defineStore('auth', () => {
   async function loginAnonymous(displayName) {
     if (isMissingConfig) {
       // Sin Firebase: login local para usar el álbum de forma offline
-      user.value = { uid: 'local-' + Date.now(), displayName, photoURL: null, email: null, isLocal: true }
+      const localUser = { uid: 'local-' + Date.now(), displayName, photoURL: null, email: null, isLocal: true }
+      setUser(localUser)
       Notify.create({ type: 'positive', message: `¡Bienvenido, ${displayName}! (modo local)` })
       return
     }
@@ -78,7 +79,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { auth } = await import('src/firebase/config')
       const result = await signInAnonymously(auth)
       await updateProfile(result.user, { displayName })
-      user.value = { ...result.user, displayName }
+      setUser({ ...result.user, displayName })
       await _ensureUserDoc({ ...result.user, displayName })
       Notify.create({ type: 'positive', message: `¡Bienvenido, ${displayName}!` })
     } catch (e) {

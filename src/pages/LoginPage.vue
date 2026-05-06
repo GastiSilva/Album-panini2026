@@ -9,8 +9,8 @@
             style="width: 120px; height: auto;" 
           />
         </div>
-        <div class="text-h5 text-weight-bold text-primary">Álbum Mundial 2026</div>
-        <div class="text-caption text-grey q-mt-xs">Controla tus figuritas con amigos</div>
+        <div class="text-h5 text-weight-bold text-primary">{{ t('common.myAlbum') }} 2026</div>
+        <div class="text-caption text-grey q-mt-xs">{{ t('layout.worldCup') }}</div>
       </div>
 
       <q-separator class="q-mb-lg" />
@@ -24,7 +24,7 @@
         color="white"
         text-color="dark"
         icon="img:https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-        label="Continuar con Google"
+        :label="t('login.loginGoogle')"
         :loading="authStore.loading"
         @click="authStore.loginWithGoogle()"
         style="border: 1px solid #e0e0e0"
@@ -36,16 +36,15 @@
         <q-separator class="col" />
       </div>
 
-      <!-- Login anónimo con nombre -->
       <q-form @submit.prevent="loginAnon" class="column q-gutter-sm">
         <q-input
           v-model="anonName"
           outlined
           rounded
           dense
-          label="Tu nombre (sin cuenta)"
-          placeholder="Ej: Matías"
-          :rules="[v => !!v || 'Escribe tu nombre']"
+          :label="t('login.guestName')"
+          :placeholder="t('login.guestNamePlaceholder')"
+          :rules="[v => !!v || t('login.enterYourName')]"
           maxlength="30"
         >
           <template #prepend><q-icon name="person" /></template>
@@ -56,7 +55,7 @@
           rounded
           type="submit"
           color="primary"
-          label="Entrar como invitado"
+          :label="t('login.loginAsGuest')"
           :loading="authStore.loading"
           class="full-width"
           icon="login"
@@ -64,7 +63,7 @@
       </q-form>
 
       <div class="text-caption text-grey text-center q-mt-lg">
-        🔒 Tus datos se sincronizan en tiempo real con Firebase
+        {{ t('login.firebaseSync') }}
       </div>
     </q-card>
   </div>
@@ -74,10 +73,12 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/authStore'
+import { useLanguage } from 'src/composables/useLanguage'
 import { watch } from 'vue'
 
 const authStore = useAuthStore()
 const router    = useRouter()
+const { t }     = useLanguage()
 const anonName  = ref('')
 
 async function loginAnon() {
