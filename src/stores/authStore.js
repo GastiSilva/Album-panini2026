@@ -75,16 +75,22 @@ export const useAuthStore = defineStore('auth', () => {
     }
     loading.value = true
     try {
-      const { signInAnonymously, updateProfile } = await import('firebase/auth')
+      const { signInAnonymously } = await import('firebase/auth')
       const { auth } = await import('src/firebase/config')
       const result = await signInAnonymously(auth)
-      await updateProfile(result.user, { displayName })
       setUser({ ...result.user, displayName })
       await _ensureUserDoc({ ...result.user, displayName })
       Notify.create({ type: 'positive', message: `¡Bienvenido, ${displayName}!` })
     } catch (e) {
-      Notify.create({ type: 'negative', message: 'Error al iniciar sesión' })
-      console.error(e)
+      // Si el proveedor anónimo no está habilitado en Firebase, usamos modo local
+      if (e.code === 'auth/admin-restricted-operation' || e.code === 'auth/operation-not-allowed') {
+        const localUser = { uid: 'local-' + Date.now(), displayName, photoURL: null, email: null, isLocal: true }
+        setUser(localUser)
+        Notify.create({ type: 'positive', message: `¡Bienvenido, ${displayName}! (modo local)` })
+      } else {
+        Notify.create({ type: 'negative', message: 'Error al iniciar sesión' })
+        console.error(e)
+      }
     } finally {
       loading.value = false
     }
@@ -96,7 +102,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { auth }    = await import('src/firebase/config')
       await signOut(auth).catch(console.warn)
     }
-    user.value = null
+    setUser(null)
   }
 
   async function _ensureUserDoc(firebaseUser) {

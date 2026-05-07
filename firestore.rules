@@ -9,11 +9,11 @@ service cloud.firestore {
       // Solo el propio usuario puede CREAR o ACTUALIZAR su documento
       allow create: if request.auth.uid == userId
         && request.resource.data.keys().hasAll(['displayName', 'createdAt'])
-        && request.resource.data.owned == null || request.resource.data.owned is map;
+        && (request.resource.data.owned == null || request.resource.data.owned is map);
 
       allow update: if request.auth.uid == userId
-        && request.resource.data.owned is map
-        && request.resource.data.owned.size() <= 980;
+        && (!('owned' in request.resource.data) || request.resource.data.owned is map)
+        && (!('owned' in request.resource.data) || request.resource.data.owned.size() <= 980);
 
       allow delete: if false; // No permitir borrar cuentas desde el cliente
     }

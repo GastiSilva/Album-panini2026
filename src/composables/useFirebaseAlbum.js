@@ -65,7 +65,7 @@ export function useFirebaseAlbum() {
       return
     }
     const authStore = useAuthStore()
-    if (!authStore.userId) { _loadFromLS(); return }
+    if (!authStore.userId || authStore.user?.isLocal) { _loadFromLS(); return }
 
     loading.value = true
 
@@ -122,7 +122,8 @@ export function useFirebaseAlbum() {
     owned.value = next
 
     // Persistir
-    if (isMissingConfig) {
+    const authStoreCheck = useAuthStore()
+    if (isMissingConfig || authStoreCheck.user?.isLocal) {
       _saveToLS()
       return
     }
@@ -140,7 +141,7 @@ export function useFirebaseAlbum() {
     _pendingWrites.clear()
 
     try {
-      const [{ doc, updateDoc, deleteField, serverTimestamp }, { db }] =
+      const [{ doc, setDoc, deleteField, serverTimestamp }, { db }] =
         await Promise.all([import('firebase/firestore'), import('src/firebase/config')])
 
       if (!db) { syncing.value = false; return }
@@ -152,7 +153,7 @@ export function useFirebaseAlbum() {
         updates[`owned.${key}`] = newCount <= 0 ? deleteField() : newCount
       }
 
-      await updateDoc(doc(db, 'users', authStore.userId), updates)
+      await setDoc(doc(db, 'users', authStore.userId), updates, { merge: true })
     } catch (err) {
       console.error('Flush error:', err)
       // Revertir
@@ -236,7 +237,7 @@ function getExchangeCandidates(friendOwned) {
   function subscribeToExchanges() {
     if (isMissingConfig) return
     const authStore = useAuthStore()
-    if (!authStore.userId) return
+    if (!authStore.userId || authStore.user?.isLocal) return
 
     Promise.all([
       import('firebase/firestore'),

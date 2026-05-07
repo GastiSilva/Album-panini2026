@@ -60,7 +60,7 @@
                 </q-item-section>
               </q-item>
               <q-separator />
-              <q-item clickable v-close-popup @click="authStore.logout()">
+              <q-item clickable v-close-popup @click="handleLogout()">
                 <q-item-section avatar><q-icon name="logout" /></q-item-section>
                 <q-item-section>{{ t('common.logout') }}</q-item-section>
               </q-item>
@@ -319,6 +319,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/authStore'
 import { useThemePreference } from 'src/composables/useThemePreference'
@@ -328,6 +329,7 @@ import mercadoPagoLogo from 'src/assets/Mercado-Pago-Icon-Logo.png'
 import paypalLogo from 'src/assets/Paypal_logo.png'
 
 const $q        = useQuasar()
+const router    = useRouter()
 const authStore = useAuthStore()
 const album     = useFirebaseAlbum()
 const { toggleTheme } = useThemePreference()
@@ -341,6 +343,11 @@ const respondingId = ref(null)
 // Donaciones
 const showMercadoPagoModal = ref(false)
 const MERCADO_PAGO_LINK = 'https://link.mercadopago.com.ar/mialbumpanini26'
+
+async function handleLogout() {
+  await authStore.logout()
+  router.replace('/login')
+}
 
 async function respond(exchangeId, accept) {
   respondingId.value = exchangeId + (accept ? 'y' : 'n')

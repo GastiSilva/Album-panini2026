@@ -48,6 +48,10 @@ export default configure(function (ctx) {
       swFilename: 'sw.js',
       manifestFilename: 'manifest.json',
       useCredentialsForManifestTag: false,
+      workboxOptions: {
+        skipWaiting: true,
+        clientsClaim: true
+      },
       manifest: {
         name: 'Álbum Mundial 2026',
         short_name: 'Mundial 2026',
