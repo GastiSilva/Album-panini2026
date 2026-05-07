@@ -158,6 +158,32 @@
             </div>
           </div>
         </div>
+
+        <!-- Sección de donaciones discreta -->
+        <div class="q-px-md q-py-sm">
+          <div class="text-caption text-grey-7 q-mb-md">💙 Colaborar</div>
+          <div class="text-caption text-grey q-mb-md">Colabora con el desarrollo de Álbum Panini 2026. Tu donación ayuda a mantener y mejorar esta app. ¡Gracias por apoyar!</div>
+          <div class="row q-gutter-md items-center justify-center">
+            <q-btn
+              outline
+              rounded
+              color="accent"
+              size="md"
+              :icon="`img:${mercadoPagoLogo}`"
+              @click="donateMercadoPago"
+              title="Donar por Mercado Pago"
+            />
+            <q-btn
+              outline
+              rounded
+              color="primary"
+              size="md"
+              :icon="`img:${paypalLogo}`"
+              @click="donatePayPal"
+              title="Donar por PayPal"
+            />
+          </div>
+        </div>
       </q-scroll-area>
     </q-drawer>
 
@@ -245,6 +271,50 @@
       </q-scroll-area>
     </q-drawer>
   </q-layout>
+
+  <!-- Modal de Mercado Pago -->
+  <q-dialog v-model="showMercadoPagoModal" position="bottom">
+    <q-card style="min-width: 300px; border-radius: 12px 12px 0 0;">
+      <q-card-section class="row items-center bg-accent text-white" style="border-radius: 12px 12px 0 0;">
+        <q-icon name="local_atm" size="24px" class="q-mr-md" />
+        <span class="text-h6">Donar por Mercado Pago</span>
+        <q-space />
+        <q-btn icon="close" flat round dense v-close-popup />
+      </q-card-section>
+
+      <q-card-section class="q-pa-lg">
+        <div class="text-subtitle2 text-weight-bold q-mb-md">💰 Elige cuanto quieres donar</div>
+        <div class="q-mb-lg text-body2">
+          <p class="q-mb-md">Tu donación ayuda al desarrollo y mejora de esta app. ¡Gracias por apoyar!</p>
+        </div>
+
+        <div class="bg-info text-white q-pa-md rounded-borders q-mb-md">
+          <q-icon name="favorite" class="q-mr-sm" />
+          <span class="text-caption">Puedes elegir el monto al hacer click en el botón de abajo</span>
+        </div>
+
+        <div class="row q-gutter-sm">
+          <q-btn
+            unelevated
+            rounded
+            color="accent"
+            label="Donar ahora"
+            class="full-width"
+            @click="donateMercadoPago"
+          />
+          <q-btn
+            outline
+            rounded
+            color="primary"
+            label="Cerrar"
+            class="full-width"
+            v-close-popup
+          />
+        </div>
+      </q-card-section>
+    </q-card>
+  </q-dialog>
+
 </template>
 
 <script setup>
@@ -254,6 +324,8 @@ import { useAuthStore } from 'src/stores/authStore'
 import { useThemePreference } from 'src/composables/useThemePreference'
 import { useLanguage } from 'src/composables/useLanguage'
 import { useFirebaseAlbum } from 'src/composables/useFirebaseAlbum'
+import mercadoPagoLogo from 'src/assets/Mercado-Pago-Icon-Logo.png'
+import paypalLogo from 'src/assets/Paypal_logo.png'
 
 const $q        = useQuasar()
 const authStore = useAuthStore()
@@ -265,6 +337,10 @@ const drawer    = ref(false)
 // Notificaciones
 const notifDrawer  = ref(false)
 const respondingId = ref(null)
+
+// Donaciones
+const showMercadoPagoModal = ref(false)
+const MERCADO_PAGO_LINK = 'https://link.mercadopago.com.ar/mialbumpanini26'
 
 async function respond(exchangeId, accept) {
   respondingId.value = exchangeId + (accept ? 'y' : 'n')
@@ -279,6 +355,16 @@ async function respond(exchangeId, accept) {
   } finally {
     respondingId.value = null
   }
+}
+
+// Métodos de donación
+function donatePayPal() {
+  window.open('https://www.paypal.com/donate/?business=gasti.silva@gmail.com&no_recurring=0&currency_code=USD', '_blank')
+}
+
+function donateMercadoPago() {
+  window.open(MERCADO_PAGO_LINK, '_blank')
+  showMercadoPagoModal.value = false
 }
 </script>
 

@@ -23,6 +23,8 @@ export function useThemePreference() {
         // Si no hay preferencia guardada, usar la del sistema
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
         $q.dark.set(prefersDark)
+        // Guardar la preferencia del sistema para futuras cargas
+        saveThemePreference()
       }
     } catch (e) {
       console.warn('Error al restaurar tema:', e)
