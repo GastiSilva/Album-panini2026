@@ -1,0 +1,1 @@
+import{b as e}from"./vue.runtime.esm-bundler-DiL7tOPF.js";import{St as t}from"./index-CU5L01X8.js";var n=t({name:`QSpace`,setup(){let t=e(`div`,{class:`q-space`});return()=>t}});export{n as t};
