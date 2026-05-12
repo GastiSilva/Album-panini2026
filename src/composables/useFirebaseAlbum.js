@@ -72,10 +72,24 @@ export function useFirebaseAlbum() {
     Promise.all([
       import('firebase/firestore'),
       import('src/firebase/config'),
-    ]).then(([{ doc, onSnapshot }, { db }]) => {
+    ]).then(async ([{ doc, onSnapshot, setDoc, serverTimestamp, getDoc }, { db }]) => {
       if (!db) { _loadFromLS(); loading.value = false; return }
 
       const docRef = doc(db, 'users', authStore.userId)
+
+      // Garantizar que el documento existe ANTES de suscribirse
+      // Así el primer write siempre es un update, nunca falla con 'no document'
+      const snap0 = await getDoc(docRef).catch(() => null)
+      if (!snap0 || !snap0.exists()) {
+        await setDoc(docRef, {
+          displayName: authStore.user?.displayName || authStore.user?.email || 'Usuario',
+          email:       authStore.user?.email || null,
+          photoURL:    authStore.user?.photoURL || null,
+          owned:       {},
+          createdAt:   serverTimestamp(),
+        }, { merge: true }).catch(console.warn)
+      }
+
       _unsubFirestore = onSnapshot(
         docRef,
         (snap) => {
@@ -135,25 +149,40 @@ export function useFirebaseAlbum() {
 
   async function _flushToFirestore() {
     if (_pendingWrites.size === 0) return
+
+    const authStore = useAuthStore()
+    if (!authStore.userId || authStore.user?.isLocal) {
+      // Si no hay usuario válido, guardar en localStorage como fallback
+      _saveToLS()
+      _pendingWrites.clear()
+      return
+    }
+
     syncing.value = true
 
     const snapshot = new Map(_pendingWrites)
     _pendingWrites.clear()
 
-    try {
+  try {
       const [{ doc, setDoc, deleteField, serverTimestamp }, { db }] =
         await Promise.all([import('firebase/firestore'), import('src/firebase/config')])
 
       if (!db) { syncing.value = false; return }
 
       const authStore = useAuthStore()
-      const updates   = { updatedAt: serverTimestamp() }
-
+      
+      // Armamos el objeto anidado correctamente para setDoc
+      const ownedUpdates = {}
       for (const [key, { newCount }] of snapshot) {
-        updates[`owned.${key}`] = newCount <= 0 ? deleteField() : newCount
+        ownedUpdates[key] = newCount <= 0 ? deleteField() : newCount
       }
 
-      await setDoc(doc(db, 'users', authStore.userId), updates, { merge: true })
+      // Mandamos a guardar con la estructura real
+      await setDoc(doc(db, 'users', authStore.userId), {
+        updatedAt: serverTimestamp(),
+        owned: ownedUpdates
+      }, { merge: true })
+      
     } catch (err) {
       console.error('Flush error:', err)
       // Revertir

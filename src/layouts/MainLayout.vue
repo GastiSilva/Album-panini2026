@@ -160,7 +160,7 @@
         </div>
 
         <!-- Sección de donaciones discreta -->
-        <div class="q-px-md q-py-sm">
+        <!-- <div class="q-px-md q-py-sm">
           <div class="text-caption text-grey-7 q-mb-md">💙 Colaborar</div>
           <div class="text-caption text-grey q-mb-md">Colabora con el desarrollo de Álbum Panini 2026. Tu donación ayuda a mantener y mejorar esta app. ¡Gracias por apoyar!</div>
           <div class="row q-gutter-md items-center justify-center">
@@ -183,7 +183,7 @@
               title="Donar por PayPal"
             />
           </div>
-        </div>
+        </div> -->
       </q-scroll-area>
     </q-drawer>
 

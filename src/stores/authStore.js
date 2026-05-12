@@ -105,6 +105,99 @@ export const useAuthStore = defineStore('auth', () => {
     setUser(null)
   }
 
+  async function loginWithEmailPassword(email, password) {
+    if (isMissingConfig) {
+      Notify.create({ type: 'warning', message: 'Configura Firebase en .env.local primero' })
+      return false
+    }
+    loading.value = true
+    try {
+      const { signInWithEmailAndPassword } = await import('firebase/auth')
+      const { auth } = await import('src/firebase/config')
+      const result = await signInWithEmailAndPassword(auth, email, password)
+      setUser(result.user)
+      await _ensureUserDoc(result.user)
+      Notify.create({ type: 'positive', message: `¡Bienvenido, ${result.user.displayName || result.user.email}!` })
+      return true
+    } catch (e) {
+      console.error('Login error:', e.code, e.message)
+      if (e.code === 'auth/invalid-email' || e.code === 'auth/invalid-credential') {
+        Notify.create({ type: 'negative', message: 'Correo o contraseña incorrectos' })
+      } else if (e.code === 'auth/user-not-found') {
+        Notify.create({ type: 'negative', message: 'Este correo no está registrado' })
+      } else {
+        Notify.create({ type: 'negative', message: 'Error al iniciar sesión' })
+      }
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function registerWithEmail(email, password) {
+    if (isMissingConfig) {
+      Notify.create({ type: 'warning', message: 'Configura Firebase en .env.local primero' })
+      return
+    }
+    loading.value = true
+    try {
+      const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth')
+      const { auth } = await import('src/firebase/config')
+      const result = await createUserWithEmailAndPassword(auth, email, password)
+      
+      // Actualizar el perfil con el nombre basado en el email
+      const displayName = email.split('@')[0]
+      await updateProfile(result.user, { displayName })
+      
+      setUser(result.user)
+      await _ensureUserDoc({ ...result.user, displayName })
+      Notify.create({ type: 'positive', message: `¡Bienvenido, ${displayName}!` })
+      return true
+    } catch (e) {
+      console.error('Register error:', e.code, e.message)
+      if (e.code === 'auth/email-already-in-use') {
+        Notify.create({ type: 'negative', message: 'Este correo ya está registrado' })
+      } else if (e.code === 'auth/weak-password') {
+        Notify.create({ type: 'negative', message: 'La contraseña es muy débil' })
+      } else if (e.code === 'auth/invalid-email') {
+        Notify.create({ type: 'negative', message: 'Email inválido' })
+      } else {
+        Notify.create({ type: 'negative', message: 'Error al registrarse' })
+      }
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function sendPasswordReset(email) {
+    if (isMissingConfig) {
+      Notify.create({ type: 'warning', message: 'Configura Firebase en .env.local primero' })
+      return
+    }
+    loading.value = true
+    try {
+      const { sendPasswordResetEmail } = await import('firebase/auth')
+      const { auth } = await import('src/firebase/config')
+      await sendPasswordResetEmail(auth, email)
+      Notify.create({ type: 'positive', message: 'Se envió un enlace de recuperación a tu correo' })
+      return true
+    } catch (e) {
+      console.error('Reset error:', e.code, e.message)
+      if (e.code === 'auth/user-not-found') {
+        Notify.create({ type: 'negative', message: 'Este correo no está registrado' })
+      } else if (e.code === 'auth/invalid-email') {
+        Notify.create({ type: 'negative', message: 'Email inválido' })
+      } else {
+        Notify.create({ type: 'negative', message: 'Error al enviar enlace de recuperación' })
+      }
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
+
   async function _ensureUserDoc(firebaseUser) {
     try {
       const { doc, setDoc, getDoc, serverTimestamp } = await import('firebase/firestore')
@@ -125,5 +218,5 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { user, loading, userName, userPhoto, userId, setUser, initializeFromStorage, loginWithGoogle, loginAnonymous, logout }
+  return { user, loading, userName, userPhoto, userId, setUser, initializeFromStorage, loginWithGoogle, loginWithEmailPassword, registerWithEmail, sendPasswordReset, loginAnonymous, logout }
 })

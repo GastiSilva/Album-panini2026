@@ -7,13 +7,25 @@
     <!-- ── Mis repetidas ──────────────────────────────────────────── -->
     <q-card flat bordered class="q-mb-lg">
       <q-card-section class="q-pb-sm">
-        <div class="text-subtitle1 text-weight-bold">
-          <q-icon name="star" color="deep-orange" /> {{ t('exchange.myDuplicates') }}
-          <q-badge color="deep-orange" class="q-ml-sm" v-if="myRepeated.length">
-            {{ myRepeated.length }} tipos · {{ album.stats.value.totalDupes }} extras
-          </q-badge>
+        <div class="row items-center q-mb-xs">
+          <div class="text-subtitle1 text-weight-bold">
+            <q-icon name="star" color="deep-orange" /> {{ t('exchange.myDuplicates') }}
+            <q-badge color="deep-orange" class="q-ml-sm" v-if="myRepeated.length">
+              {{ myRepeated.length }} tipos · {{ album.stats.value.totalDupes }} extras
+            </q-badge>
+          </div>
         </div>
-        <div class="text-caption text-grey">{{ t('exchange.myDuplicatesDesc') }}</div>
+        <div class="text-caption text-grey q-mb-sm">{{ t('exchange.myDuplicatesDesc') }}</div>
+        <q-btn
+          v-if="myRepeated.length"
+          unelevated rounded
+          color="deep-orange"
+          icon="tune"
+          :label="t('exchange.manageRepeated')"
+          size="sm"
+          class="full-width"
+          @click="showEditRepeated = true"
+        />
       </q-card-section>
 
       <q-separator />
@@ -216,6 +228,76 @@
       </q-list>
     </q-card>
 
+    <!-- ── Dialog: Gestionar repetidas ──────────────────────────────── -->
+    <q-dialog v-model="showEditRepeated" maximized transition-show="slide-up" transition-hide="slide-down">
+      <q-card>
+        <q-bar class="bg-deep-orange text-white q-py-md">
+          <q-icon name="tune" />
+          <div class="q-ml-sm text-weight-bold">{{ t('exchange.manageRepeated') }}</div>
+          <q-space />
+          <q-btn dense flat icon="close" color="white" v-close-popup />
+        </q-bar>
+
+        <q-card-section class="q-pb-sm">
+          <q-btn
+            unelevated rounded
+            color="deep-orange"
+            icon="filter_1"
+            :label="t('exchange.resetAllToOne')"
+            class="full-width"
+            @click="resetAllToOne"
+          />
+        </q-card-section>
+
+        <q-separator />
+
+        <q-scroll-area style="height: calc(100dvh - 180px)">
+          <q-list separator>
+            <q-item v-for="item in myRepeated" :key="item.sticker.id" class="q-py-sm">
+              <q-item-section avatar>
+                <q-avatar
+                  :style="{ backgroundColor: item.color }"
+                  text-color="white"
+                  size="40px"
+                  font-size="12px"
+                >
+                  {{ item.sticker.localId || item.sticker.id }}
+                </q-avatar>
+              </q-item-section>
+              <q-item-section>
+                <q-item-label class="text-weight-bold">{{ item.sticker.label }}</q-item-label>
+                <q-item-label caption>
+                  {{ item.sticker.sectionName }} · ×{{ item.count - 1 }} extra{{ item.count - 1 !== 1 ? 's' : '' }}
+                </q-item-label>
+              </q-item-section>
+              <q-item-section side>
+                <div class="row items-center q-gutter-xs">
+                  <q-btn
+                    round flat dense
+                    icon="remove"
+                    size="sm"
+                    color="negative"
+                    :disable="item.count <= 1"
+                    @click="decreaseSticker(item)"
+                  />
+                  <span class="text-weight-bold q-px-xs" style="min-width:28px; text-align:center">
+                    {{ item.count }}
+                  </span>
+                  <q-btn
+                    round flat dense
+                    icon="add"
+                    size="sm"
+                    color="positive"
+                    @click="increaseSticker(item)"
+                  />
+                </div>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-scroll-area>
+      </q-card>
+    </q-dialog>
+
     <!-- ── Dialog: Proponer intercambio ─────────────────────────────── -->
     <q-dialog v-model="showProposeDialog" persistent>
       <q-card style="min-width: 320px; max-width: 480px">
@@ -300,6 +382,9 @@ const loadingFriend = ref(false)
 // Dialog de propuesta
 const showProposeDialog = ref(false)
 const sendingProposal   = ref(false)
+
+// Dialog de gestión de repetidas
+const showEditRepeated = ref(false)
 
 // ── Mis repetidas ─────────────────────────────────────────────────────
 const myRepeated = computed(() =>
@@ -420,6 +505,23 @@ function editarApodo() {
   } else if (nuevoApodo !== null) {
     Notify.create({ type: 'negative', message: t('common.error') })
   }
+}
+
+// ── Gestión masiva de repetidas ───────────────────────────────────────
+function decreaseSticker(item) {
+  album.updateSticker({ stickerId: item.sticker.id, newCount: item.count - 1 })
+}
+
+function increaseSticker(item) {
+  album.updateSticker({ stickerId: item.sticker.id, newCount: item.count + 1 })
+}
+
+function resetAllToOne() {
+  myRepeated.value.forEach(item => {
+    album.updateSticker({ stickerId: item.sticker.id, newCount: 1 })
+  })
+  Notify.create({ type: 'positive', message: t('exchange.resetAllDone'), icon: 'filter_1' })
+  showEditRepeated.value = false
 }
 </script>
 

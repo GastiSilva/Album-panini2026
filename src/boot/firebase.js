@@ -43,16 +43,28 @@ export default async function ({ app }) {
     
     const authStore = useAuthStore()
     
-    // Primero, recuperar del localStorage (por si estaba logueado antes)
+    // Primero, recuperar del localStorage para UI inmediata
     authStore.initializeFromStorage()
     
-    // Luego, escuchar cambios en Firebase Auth
+    // onAuthStateChanged puede disparar null primero mientras Firebase carga
+    // la sesión desde IndexedDB. Usamos un flag para ignorar ese null inicial
+    // y no borrar el usuario restaurado del localStorage.
+    let firebaseAuthResolved = false
+
     onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
+        // Usuario real: siempre actualizar
         authStore.setUser(firebaseUser)
+        firebaseAuthResolved = true
       } else {
-        // Si Firebase dice que no hay usuario, limpiar
-        authStore.setUser(null)
+        if (!firebaseAuthResolved) {
+          // Primer null: Firebase todavía está cargando desde IndexedDB.
+          // No borrar el usuario del localStorage — dejar que Firebase termine.
+          firebaseAuthResolved = true
+        } else {
+          // Null posterior al primer resolve: el usuario realmente cerró sesión
+          authStore.setUser(null)
+        }
       }
     })
   } catch (e) {
